@@ -1,0 +1,80 @@
+项目开发需求规格书：熵流 (Flux) - MVP V1.0
+第一部分：项目概述与核心概念
+项目名称: 熵流 (Flux)
+核心概念: 一个匿名的、基于二维无限画布的实时信息星图。用户在画布上放置的留言会以“信息节点”的形式存在。用户通过主动探索（移动、缩放、悬停）来发现内容，并通过一个“热点”提示系统被引导至社区的活跃区域。
+MVP目标: 构建一个功能稳定的基础版本，核心是空间化的信息节点发布、探索式的交互体验，以及一个引导性的热点提示系统。
+第二部分：技术栈与环境
+后端: Java 17+, Spring Boot 3+, MyBatis-Plus, MySQL 8+, Maven
+前端: Vue 3, TypeScript, Vite, Pinia, Axios
+实时通讯: WebSocket
+第三部分：后端开发需求 (Java Spring Boot)
+任务 B-1: 数据库表设计
+指令: 设计并创建一张名为 messages 的数据库表，用于存储信息节点。
+字段要求:
+id (BIGINT, 主键, 自增)
+content (TEXT, NOT NULL, 长度限制300字符)
+pos_x (INT, NOT NULL, X坐标)
+pos_y (INT, NOT NULL, Y坐标)
+ip_address (VARCHAR(45), NOT NULL)
+created_at (DATETIME, NOT NULL, 默认当前时间)
+任务 B-2: 数据模型与传输对象
+指令:
+创建 Message 实体类，映射 messages 表。
+创建 MessageNodeDTO (record)，用于API和WebSocket返回，包含 id, posX, posY。
+创建 MessageDetailDTO (record)，用于用户悬停节点时返回，包含 content 和 createdAt。
+创建 CreateMessageDTO (record)，用于接收用户发布请求，包含 content, posX, posY。
+任务 B-3: REST API 设计
+指令: 创建 MessageController，提供以下API端点：
+GET /api/messages/nodes: 获取指定区域内的信息节点。
+请求参数: x, y, width, height (定义视口区域)。
+成功响应: 返回 ApiResponse<List<MessageNodeDTO>>。
+GET /api/messages/{id}: 获取单个节点的详细信息。
+请求路径参数: id (节点ID)。
+成功响应: 返回 ApiResponse<MessageDetailDTO>。
+任务 B-4: Service层业务逻辑
+指令: 创建 MessageService 及其实现，包含以下业务方法：
+getNodesInViewport(...): 实现按坐标区域查询节点的逻辑。
+getMessageDetailById(Long id): 实现查询单个节点详情的逻辑。
+createMessage(CreateMessageDTO dto, String ipAddress): 实现创建新消息的逻辑，必须包含对 content 长度的校验。
+getHotspot(): 实现计算热点坐标的逻辑。此方法查询最近1分钟内创建的节点，并计算出它们的坐标中心点。
+任务 B-5: WebSocket 实时通讯
+指令: 创建 FluxWebSocketHandler 并通过 WebSocketConfig 注册到 /ws/flux。
+广播新节点: 当 createMessage 被成功调用后，必须通过WebSocket向所有客户端广播一条 NODE_CREATED 类型的消息，消息体为新节点的 MessageNodeDTO。
+广播热点: 创建一个定时任务（@Scheduled，每10秒执行一次），调用 getHotspot() 方法，并通过WebSocket向所有客户端广播一条 HOTSPOT_UPDATED 类型的消息，消息体包含热点坐标 { "x": number, "y": number }。
+任务 B-6: 安全与反滥用
+指令:
+IP限流: 实现一个服务，限制同一 ipAddress 在10秒内只能调用一次 createMessage。
+输入清理: 在创建消息前，必须对 content 字段进行HTML转义，防止XSS攻击。
+第四部分：前端开发需求 (Vue 3)
+任务 F-1: 画布引擎
+指令: 实现一个 useCanvas.ts 组合式函数，负责画布的交互逻辑。
+功能要求:
+提供响应式状态，用于存储画布的当前视口位置 (viewport.x, viewport.y) 和缩放级别 (viewport.zoom)。
+必须实现鼠标拖拽平移和滚轮缩放功能，并相应地更新视口状态。
+任务 F-2: API与状态管理
+指令:
+API层: 在 src/api/message.ts 中，封装对 GET /api/messages/nodes 和 GET /api/messages/{id} 的请求。
+Pinia Store: 创建 useFluxStore，用于：
+存储当前视口内的节点列表 (nodes: MessageNodeDTO[])。
+存储当前悬停节点的详细信息 (hoveredMessage: MessageDetailDTO | null)。
+存储最新的热点坐标 (hotspot: {x, y} | null)。
+提供 fetchNodesInViewport action，在视口状态变化时调用API更新节点列表。
+提供 fetchMessageDetail action，在用户悬停节点时调用API获取详情。
+任务 F-3: 核心视图与组件
+指令:
+FluxView.vue (主视图):
+使用 useCanvas 来控制画布的根元素。
+监听画布的点击事件，在点击位置弹出一个模态框或输入框，用于发布新节点。
+使用 v-for 渲染 Pinia store 中的 nodes 列表，将每个节点渲染为一个简单的 div (视觉节点)。
+每个节点 div 必须根据其坐标和画布的视口状态，通过CSS transform 属性进行绝对定位。
+节点交互:
+为每个节点 div 绑定 @mouseenter 事件，触发 fetchMessageDetail action。
+当 hoveredMessage 状态不为null时，在鼠标指针附近显示一个浮动的卡片，展示其详细内容。@mouseleave 事件则清空该状态。
+热点提示:
+在UI的固定位置（如右上角）显示 hotspot 坐标。
+为该提示添加点击事件，点击后能平滑地将画布视口中心移动到热点坐标。
+任务 F-4: WebSocket 集成
+指令: 创建一个 useWebSocket.ts 组合式函数，负责WebSocket的连接和消息处理。
+连接到 /ws/flux 端点。
+监听 NODE_CREATED 消息，并调用Pinia action将新节点添加到 nodes 列表中。
+监听 HOTSPOT_UPDATED 消息，并调用Pinia action更新 hotspot 状态。

@@ -1,0 +1,35 @@
+server:
+  port: 8080
+spring:
+  profiles:
+    active: dev
+  application:
+    name: flux-backend
+  # Database Configuration
+  datasource:
+    # IMPORTANT: Replace username and password with your own MySQL credentials
+    url: jdbc:mysql://localhost:3306/flux?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC
+    username: root
+    password: 123456 # <--- CHANGE THIS
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+# MyBatis Plus Configuration
+mybatis-plus:
+  # Global configuration
+  configuration:
+    # Enables automatic mapping of snake_case database columns to camelCase model fields
+    map-underscore-to-camel-case: true
+  # Location of MyBatis XML mapping files
+  mapper-locations: classpath*:/mapper/**/*.xml
+  global-config:
+    db-config:
+      # Logic delete field configuration (optional, but good practice)
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# Flux Application Specific Configuration
+flux:
+  rate-limit:
+    # The duration in milliseconds for which a user (by IP) is blocked after a request.
+    duration-ms: 300
