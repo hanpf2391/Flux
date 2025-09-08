@@ -2,26 +2,4 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.flux.entropia.mapper.MessageMapper">
 
-    <!--
-      This custom query sets the is_latest flag to 0 for all existing message versions
-      at a specific cell coordinate. It's the first step in the two-step upsert process
-      for creating a new version.
-    -->
-    <update id="unsetLatestFlagForCell">
-        UPDATE messages
-        SET is_latest = 0
-        WHERE row_index = #{rowIndex} AND col_index = #{colIndex}
-    </update>
-
-    <!--
-      Selects the single latest version of a message for a given cell coordinate.
-      This is used to check for conflicts before creating a new version.
-    -->
-    <select id="selectLatestForCell" resultType="com.flux.entropia.entity.Message">
-        SELECT id, content, is_latest, row_index, col_index, ip_address, created_at
-        FROM messages
-        WHERE row_index = #{rowIndex} AND col_index = #{colIndex} AND is_latest = 1
-        LIMIT 1
-    </select>
-
 </mapper>

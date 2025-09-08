@@ -9,6 +9,7 @@ public record MessageNodeDTO(
     Long id,
     Integer rowIndex,
     Integer colIndex,
-    String content
+    String content,
+    String bgColor
 ) {
 }

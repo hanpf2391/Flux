@@ -3,7 +3,8 @@ export interface MessageNodeDTO {
   id: number;
   rowIndex: number;
   colIndex: number;
-  content: string;
+  content: string | null;
+  bgColor: string | null;
 }
 
 // DTO for hovered message detail (can be kept for future use, e.g., showing history)
@@ -14,7 +15,9 @@ export interface MessageDetailDTO {
 
 // DTO for creating or updating a message cell
 export interface CreateMessageDTO {
-  content: string;
   rowIndex: number;
   colIndex: number;
+  content?: string;
+  bgColor?: string | null;
+  baseVersionId?: number | null; // Keep for optimistic locking on text
 }

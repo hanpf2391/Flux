@@ -2,7 +2,8 @@
   <div
     class="grid-cell"
     :class="statusClass"
-    @click="startEditing"
+    :style="cellStyle"
+    @click="handleCellClick"
   >
     <!-- Conflict State Overlay -->
     <div v-if="status === 'conflict'" class="conflict-overlay" :title="conflictTooltipText">
@@ -34,6 +35,8 @@ import type { PropType } from 'vue';
 import type { MessageNodeDTO } from '../types';
 import { useWebSocket } from '../composables/useWebSocket';
 import { useLockStore } from '../store/lockStore';
+import { storeToRefs } from 'pinia';
+import { useFluxStore } from '../store/fluxStore';
 
 // --- Types ---
 type EditStatus = 'idle' | 'editing' | 'saving' | 'error' | 'conflict';
@@ -56,12 +59,15 @@ const props = defineProps({
 });
 
 const emit = defineEmits<{
-  (e: 'update-cell', payload: { content: string; baseVersionId: number | null }, callbacks: { onError: (type: ErrorType) => void }): void;
+  (e: 'update-text', payload: { content: string; baseVersionId: number | null }, callbacks: { onError: (type: ErrorType) => void }): void;
+  (e: 'update-color'): void;
 }>();
 
 // --- Composables ---
 const { sendMessage } = useWebSocket();
 const lockStore = useLockStore();
+const fluxStore = useFluxStore();
+const { currentTool } = storeToRefs(fluxStore);
 
 // --- State ---
 const status = ref<EditStatus>('idle');
@@ -70,6 +76,9 @@ const baseVersionId = ref<number | null>(null);
 const textareaRef = ref<HTMLTextAreaElement | null>(null);
 
 // --- Computed ---
+const cellStyle = computed(() => ({
+  backgroundColor: props.cellData?.bgColor || '#ffffff',
+}));
 // isEditing is true when the user is actively typing or the system is processing their input.
 const isEditing = computed(() => status.value === 'editing' || status.value === 'saving');
 const isRemoteEditing = computed(() => lockStore.isLocked(props.rowIndex, props.colIndex));
@@ -107,6 +116,14 @@ watch(
 );
 
 // --- Methods ---
+const handleCellClick = () => {
+  if (currentTool.value === 'text') {
+    startEditing();
+  } else {
+    emit('update-color');
+  }
+};
+
 const notifyEditingStatus = (isEditing: boolean) => {
   sendMessage({ type: isEditing ? 'USER_IS_EDITING' : 'USER_STOPPED_EDITING', payload: { rowIndex: props.rowIndex, colIndex: props.colIndex } });
 };
@@ -144,7 +161,7 @@ const handleSave = () => {
   }
 
   status.value = 'saving';
-  emit('update-cell', 
+  emit('update-text', 
     { content: newContent, baseVersionId: baseVersionId.value }, 
     {
       onError: (type) => {

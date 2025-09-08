@@ -1,6 +1,5 @@
 package com.flux.entropia.dto;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
@@ -20,6 +19,8 @@ public record CreateMessageDTO(
     Integer rowIndex,
 
     @NotNull(message = "Column index cannot be null")
-    Integer colIndex
+    Integer colIndex,
+
+    String bgColor
 ) {
 }

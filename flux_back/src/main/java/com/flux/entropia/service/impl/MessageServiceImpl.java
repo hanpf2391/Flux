@@ -1,6 +1,7 @@
 package com.flux.entropia.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.flux.entropia.config.FluxProperties;
 import com.flux.entropia.dto.CreateMessageDTO;
 import com.flux.entropia.dto.MessageDetailDTO;
@@ -20,6 +21,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -45,22 +47,18 @@ public class MessageServiceImpl implements MessageService {
     public List<MessageNodeDTO> getMessagesInGrid(int startRow, int endRow, int startCol, int endCol) {
         LambdaQueryWrapper<Message> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper
-            // IMPORTANT: Only select the latest version of each cell
-            .eq(Message::getIsLatest, true)
             .ge(Message::getRowIndex, startRow)
             .le(Message::getRowIndex, endRow)
             .ge(Message::getColIndex, startCol)
             .le(Message::getColIndex, endCol);
 
         return messageMapper.selectList(queryWrapper).stream()
-            .map(msg -> new MessageNodeDTO(msg.getId(), msg.getRowIndex(), msg.getColIndex(), msg.getContent()))
+            .map(msg -> new MessageNodeDTO(msg.getId(), msg.getRowIndex(), msg.getColIndex(), msg.getContent(), msg.getBgColor()))
             .collect(Collectors.toList());
     }
 
     @Override
     public Optional<MessageDetailDTO> getMessageDetailById(Long id) {
-        // This method might need to be adapted depending on how you want to show history.
-        // For now, it just gets a specific version by its unique ID.
         Message message = messageMapper.selectById(id);
         return Optional.ofNullable(message)
             .map(msg -> new MessageDetailDTO(msg.getContent(), msg.getCreatedAt()));
@@ -71,34 +69,44 @@ public class MessageServiceImpl implements MessageService {
     public MessageNodeDTO createMessage(CreateMessageDTO dto, String ipAddress) {
         checkIpRateLimit(ipAddress);
 
-        // --- Optimistic Locking Check ---
-        // Step 1: Get the current latest version from the database.
-        Message currentLatest = messageMapper.selectLatestForCell(dto.rowIndex(), dto.colIndex());
-        Long currentLatestId = (currentLatest != null) ? currentLatest.getId() : null;
+        // Since the table has a UNIQUE constraint on (row_index, col_index),
+        // we can use a "select-then-insert/update" approach.
+        LambdaQueryWrapper<Message> queryWrapper = new LambdaQueryWrapper<Message>()
+                .eq(Message::getRowIndex, dto.rowIndex())
+                .eq(Message::getColIndex, dto.colIndex());
+        Message existingMessage = messageMapper.selectOne(queryWrapper);
 
-        // Step 2: Compare with the base version from the client.
-        // If they don't match, it means someone else has updated the cell in the meantime.
-        if (!java.util.Objects.equals(currentLatestId, dto.baseVersionId())) {
+        Long existingId = (existingMessage != null) ? existingMessage.getId() : null;
+
+        // Optimistic Locking Check
+        if (!Objects.equals(existingId, dto.baseVersionId())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "The cell has been updated by another user.");
         }
 
-        // --- Proceed with Save ---
-        // Step 3: Set the is_latest flag to 0 for all existing versions of this cell.
-        // This is safe even if currentLatest was null.
-        messageMapper.unsetLatestFlagForCell(dto.rowIndex(), dto.colIndex());
+        Message messageToSave;
+        if (existingMessage == null) {
+            // --- This is a new cell, INSERT it ---
+            messageToSave = new Message();
+            messageToSave.setRowIndex(dto.rowIndex());
+            messageToSave.setColIndex(dto.colIndex());
+        } else {
+            // --- This is an existing cell, UPDATE it ---
+            messageToSave = existingMessage;
+        }
 
-        // Step 4: Insert the new version with the is_latest flag set to 1.
-        Message newMessage = new Message();
-        newMessage.setContent(StringEscapeUtils.escapeHtml4(dto.content()));
-        newMessage.setRowIndex(dto.rowIndex());
-        newMessage.setColIndex(dto.colIndex());
-        newMessage.setIpAddress(ipAddress);
-        newMessage.setIsLatest(true); // Mark this new entry as the latest version
+        // Set common fields
+        messageToSave.setContent(StringEscapeUtils.escapeHtml4(dto.content()));
+        messageToSave.setBgColor(dto.bgColor());
+        messageToSave.setIpAddress(ipAddress);
 
-        messageMapper.insert(newMessage);
+        if (messageToSave.getId() == null) {
+            messageMapper.insert(messageToSave);
+        } else {
+            messageMapper.updateById(messageToSave);
+        }
 
-        // Step 5: Broadcast the new latest cell state to all clients.
-        MessageNodeDTO newCellState = new MessageNodeDTO(newMessage.getId(), newMessage.getRowIndex(), newMessage.getColIndex(), newMessage.getContent());
+        // Broadcast the new state to all clients
+        MessageNodeDTO newCellState = new MessageNodeDTO(messageToSave.getId(), messageToSave.getRowIndex(), messageToSave.getColIndex(), messageToSave.getContent(), messageToSave.getBgColor());
         webSocketHandler.broadcast(new WebSocketMessage<>("CELL_UPDATED", newCellState));
 
         return newCellState;

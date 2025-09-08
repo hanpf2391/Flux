@@ -27,10 +27,10 @@ public class Message {
     private String content;
 
     /**
-     * Flag to indicate if this is the latest version for the cell.
+     * The background color of the cell.
      */
-    @TableField("is_latest")
-    private Boolean isLatest;
+    @TableField("bg_color")
+    private String bgColor;
 
     /**
      * The row index of the cell in the grid.

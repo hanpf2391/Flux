@@ -26,6 +26,11 @@ export const useFluxStore = defineStore('flux', () => {
   const fetchedChunks = new Set<string>();
 
   const hoveredMessage = ref<MessageDetailDTO | null>(null); // CORRECT: Use ref for primitive/null values
+  // ===================================================================
+  // TOOLS STATE
+  // ===================================================================
+  const currentTool = ref<'text' | 'paint' | 'erase'>('text');
+  const activeColor = ref<string | null>(null);
 
   // ===================================================================
   // ACTIONS
@@ -119,15 +124,26 @@ export const useFluxStore = defineStore('flux', () => {
     newCache.set(`${newCell.rowIndex},${newCell.colIndex}`, newCell);
     cellsCache.value = newCache;
   }
+  function setCurrentTool(tool: 'text' | 'paint' | 'erase') {
+    currentTool.value = tool;
+  }
 
+  function setActiveColor(color: string | null) {
+    activeColor.value = color;
+  }
   return {
     // State
     cellsCache, // Expose the cache directly
+    cells,
     hoveredMessage,
+    currentTool,
+    activeColor,
     // Actions
     fetchGridForViewport,
     fetchMessageDetail,
     clearHoveredMessage,
     updateCell,
+    setCurrentTool,
+    setActiveColor,
   };
 });
