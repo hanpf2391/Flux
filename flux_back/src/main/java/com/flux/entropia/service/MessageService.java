@@ -39,6 +39,22 @@ public interface MessageService {
      * @param ipAddress The IP address of the creator.
      * @return The DTO of the newly created cell, to be broadcasted.
      */
-    MessageNodeDTO createMessage(CreateMessageDTO dto, String ipAddress);
+    MessageNodeDTO createOrUpdateMessage(CreateMessageDTO dto, String ipAddress);
+
+    /**
+     * Gets the total number of messages in the database.
+     *
+     * @return The total message count.
+     */
+    long getTotalMessageCount();
+
+    long countDistinctCoordinatesInGrid(int startRow, int endRow, int startCol, int endCol);
+
+    /**
+     * Gets the total number of messages in the database.
+     *
+     * @return The total message count.
+     */
+    long getVisibleMessageCount();
 
 }

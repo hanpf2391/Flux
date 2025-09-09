@@ -21,3 +21,9 @@ export interface CreateMessageDTO {
   bgColor?: string | null;
   baseVersionId?: number | null; // Keep for optimistic locking on text
 }
+
+// DTO for application statistics
+export interface StatsDTO {
+  totalMessages: number;
+  onlineUsers: number;
+}

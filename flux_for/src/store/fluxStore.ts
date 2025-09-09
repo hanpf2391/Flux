@@ -1,8 +1,7 @@
-
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue'; // Changed reactive to ref
 import type { MessageNodeDTO, MessageDetailDTO } from '../types';
-import { getMessageDetail, getMessagesInGrid } from '../api/message';
+import { getMessageDetail, getMessagesInGrid, getViewportStats } from '../api/message';
 import type { Viewport } from '../composables/useCanvas';
 
 // Define the fixed size of our grid cells
@@ -26,6 +25,12 @@ export const useFluxStore = defineStore('flux', () => {
   const fetchedChunks = new Set<string>();
 
   const hoveredMessage = ref<MessageDetailDTO | null>(null); // CORRECT: Use ref for primitive/null values
+
+  // Stats
+  const onlineUsers = ref(0);
+  const totalMessages = ref(0);
+  const viewportInfoCount = ref(0);
+
   // ===================================================================
   // TOOLS STATE
   // ===================================================================
@@ -36,11 +41,60 @@ export const useFluxStore = defineStore('flux', () => {
   // ACTIONS
   // ===================================================================
 
+  function setOnlineUsers(count: number) {
+    onlineUsers.value = count;
+  }
+
+  function setTotalMessages(count: number) {
+    totalMessages.value = count;
+  }
+
+  function updateSystemStats(stats: { onlineCount: number; totalMessages: number }) {
+    setOnlineUsers(stats.onlineCount);
+    setTotalMessages(stats.totalMessages);
+  }
+
+  let viewportFetchTimeout: NodeJS.Timeout | null = null;
+  
+  async function fetchViewportInfoCount(viewport: Viewport, canvasElement: HTMLElement | null) {
+    if (!canvasElement) return;
+
+    // Clear existing timeout
+    if (viewportFetchTimeout) {
+      clearTimeout(viewportFetchTimeout);
+    }
+
+    // Set new timeout to fetch after user stops moving/scaling
+    viewportFetchTimeout = setTimeout(async () => {
+      const rect = canvasElement.getBoundingClientRect();
+      const viewWidth = rect.width / viewport.zoom;
+      const viewHeight = rect.height / viewport.zoom;
+      const worldX = -viewport.x / viewport.zoom;
+      const worldY = -viewport.y / viewport.zoom;
+
+      const startRow = Math.floor(worldY / CELL_SIZE);
+      const endRow = Math.ceil((worldY + viewHeight) / CELL_SIZE);
+      const startCol = Math.floor(worldX / CELL_SIZE);
+      const endCol = Math.ceil((worldX + viewWidth) / CELL_SIZE);
+
+      try {
+        const count = await getViewportStats({ startRow, endRow, startCol, endCol });
+        viewportInfoCount.value = count;
+      } catch (error) {
+        console.error("Failed to fetch viewport stats:", error);
+        viewportInfoCount.value = 0; // Reset on error
+      }
+    }, 500); // 500ms delay after user stops
+  }
+
   /**
    * The core smart fetching logic for the infinite grid.
    */
   async function fetchGridForViewport(viewport: Viewport, canvasElement: HTMLElement | null) {
-    if (!canvasElement) return;
+    if (!canvasElement) {
+      console.warn("fetchGridForViewport called with null canvasElement. Aborting.");
+      return;
+    }
 
     const rect = canvasElement.getBoundingClientRect();
 
@@ -124,6 +178,17 @@ export const useFluxStore = defineStore('flux', () => {
     newCache.set(`${newCell.rowIndex},${newCell.colIndex}`, newCell);
     cellsCache.value = newCache;
   }
+
+  /**
+   * Deletes a cell from the cache. Used for WebSocket delete messages.
+   */
+  function deleteCell(rowIndex: number, colIndex: number) {
+    // Create a new Map to ensure Vue's reactivity system picks up the change.
+    const newCache = new Map(cellsCache.value);
+    const key = `${rowIndex},${colIndex}`;
+    newCache.delete(key);
+    cellsCache.value = newCache;
+  }
   function setCurrentTool(tool: 'text' | 'paint' | 'erase') {
     currentTool.value = tool;
   }
@@ -138,12 +203,20 @@ export const useFluxStore = defineStore('flux', () => {
     hoveredMessage,
     currentTool,
     activeColor,
+    onlineUsers,
+    totalMessages,
+    viewportInfoCount,
     // Actions
     fetchGridForViewport,
+    fetchViewportInfoCount,
     fetchMessageDetail,
     clearHoveredMessage,
     updateCell,
+    deleteCell,
     setCurrentTool,
     setActiveColor,
+    setOnlineUsers,
+    setTotalMessages,
+    updateSystemStats,
   };
 });

@@ -1,5 +1,10 @@
 <template>
   <div class="flux-container">
+    <!-- Stats Corner -->
+    <div class="stats-corner">
+      在线: {{ store.onlineUsers }} | 总数: {{ store.totalMessages }} | 视区: {{ store.viewportInfoCount }}
+    </div>
+
     <!-- Tool Corner -->
     <div class="tool-corner">
       <div class="coordinate-display">
@@ -77,7 +82,7 @@ import { debounce } from 'lodash-es';
 import { useCanvas } from '../composables/useCanvas';
 import { useFluxStore, CELL_SIZE } from '../store/fluxStore';
 import { useWebSocket } from '../composables/useWebSocket';
-import { createMessage } from '../api/message';
+import { createMessage, getStats } from '../api/message';
 import { isAxiosError } from 'axios';
 import GridCell, { type ErrorType } from '../components/GridCell.vue';
 import type { CreateMessageDTO } from '../types';
@@ -149,6 +154,7 @@ const visibleCells = computed(() => {
   return cellsToRender;
 });
 
+
 // --- METHODS ---
 const getCellStyle = (cell: { rowIndex: number; colIndex: number }) => ({
   transform: `translate(${cell.colIndex * CELL_SIZE}px, ${cell.rowIndex * CELL_SIZE}px)`,
@@ -199,6 +205,11 @@ const handleUpdate = async (rowIndex: number, colIndex: number, payload: Partial
       colIndex,
     };
     await createMessage(newMessage);
+    
+    // Update viewport stats after successful update
+    if (canvasRef.value) {
+      store.fetchViewportInfoCount(viewport, canvasRef.value);
+    }
   } catch (error) {
     console.error("Failed to update cell via API:", error);
     if (callbacks) {
@@ -257,14 +268,22 @@ watch(isPaletteOpen, (isOpen) => {
 const debouncedFetch = debounce(() => {
   if (canvasRef.value) {
     store.fetchGridForViewport(viewport, canvasRef.value);
+    store.fetchViewportInfoCount(viewport, canvasRef.value);
   }
-}, 250);
+}, 500);
 
 watch(viewport, debouncedFetch, { deep: true });
 
-onMounted(() => {
+onMounted(async () => {
   debouncedFetch();
   window.addEventListener('keydown', handleKeyDown);
+  try {
+    const stats = await getStats();
+    store.setTotalMessages(stats.totalMessages);
+    store.setOnlineUsers(stats.onlineUsers);
+  } catch (error) {
+    console.error("Failed to fetch initial stats:", error);
+  }
 });
 
 onUnmounted(() => {
@@ -356,5 +375,20 @@ onUnmounted(() => {
 
 .eraser-icon.is-active svg {
   fill: #409EFF;
+}
+
+.stats-corner {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 500;
+  background-color: rgba(15, 15, 15, 0.8);
+  backdrop-filter: blur(5px);
+  padding: 8px 15px;
+  border-radius: 8px;
+  color: #ffffff;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 </style>

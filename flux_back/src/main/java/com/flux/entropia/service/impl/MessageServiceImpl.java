@@ -66,43 +66,63 @@ public class MessageServiceImpl implements MessageService {
 
     @Override
     @Transactional
-    public MessageNodeDTO createMessage(CreateMessageDTO dto, String ipAddress) {
+    public MessageNodeDTO createOrUpdateMessage(CreateMessageDTO dto, String ipAddress) {
         checkIpRateLimit(ipAddress);
 
-        // Since the table has a UNIQUE constraint on (row_index, col_index),
-        // we can use a "select-then-insert/update" approach.
         LambdaQueryWrapper<Message> queryWrapper = new LambdaQueryWrapper<Message>()
                 .eq(Message::getRowIndex, dto.rowIndex())
                 .eq(Message::getColIndex, dto.colIndex());
         Message existingMessage = messageMapper.selectOne(queryWrapper);
 
-        Long existingId = (existingMessage != null) ? existingMessage.getId() : null;
-
-        // Optimistic Locking Check
-        if (!Objects.equals(existingId, dto.baseVersionId())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "The cell has been updated by another user.");
-        }
-
         Message messageToSave;
-        if (existingMessage == null) {
-            // --- This is a new cell, INSERT it ---
+
+        // Case 1: This is an UPDATE request for an existing cell
+        if (dto.baseVersionId() != null) {
+            if (existingMessage == null) {
+                // The cell the user was editing was deleted by someone else.
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "The cell you are trying to edit no longer exists.");
+            }
+            if (!Objects.equals(existingMessage.getId(), dto.baseVersionId())) {
+                // The cell was updated by someone else. Optimistic lock fails.
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "The cell has been updated by another user.");
+            }
+            // It's a valid update.
+            messageToSave = existingMessage;
+        }
+        // Case 2: This is a CREATE request for a new cell
+        else {
+            if (existingMessage != null) {
+                // Someone else created a cell here while the user was typing.
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Another user has just created a cell at this position.");
+            }
+            // It's a valid creation.
             messageToSave = new Message();
             messageToSave.setRowIndex(dto.rowIndex());
             messageToSave.setColIndex(dto.colIndex());
-        } else {
-            // --- This is an existing cell, UPDATE it ---
-            messageToSave = existingMessage;
         }
 
-        // Set common fields
-        messageToSave.setContent(StringEscapeUtils.escapeHtml4(dto.content()));
+        // Apply changes and save
+        // Sanitize content to prevent XSS
+        String sanitizedContent = (dto.content() != null) ? StringEscapeUtils.escapeHtml4(dto.content()) : "";
+        messageToSave.setContent(sanitizedContent);
         messageToSave.setBgColor(dto.bgColor());
         messageToSave.setIpAddress(ipAddress);
 
         if (messageToSave.getId() == null) {
             messageMapper.insert(messageToSave);
         } else {
-            messageMapper.updateById(messageToSave);
+            // Handle case where content is cleared
+            if (sanitizedContent.isEmpty() && dto.bgColor() == null) {
+                // If both content and color are cleared, delete the cell
+                messageMapper.deleteById(messageToSave.getId());
+                
+                // Broadcast deletion
+                webSocketHandler.broadcast(new WebSocketMessage<>("CELL_DELETED", new MessageNodeDTO(messageToSave.getId(), dto.rowIndex(), dto.colIndex(), null, null)));
+                
+                return new MessageNodeDTO(messageToSave.getId(), dto.rowIndex(), dto.colIndex(), null, null);
+            } else {
+                messageMapper.updateById(messageToSave);
+            }
         }
 
         // Broadcast the new state to all clients
@@ -110,6 +130,21 @@ public class MessageServiceImpl implements MessageService {
         webSocketHandler.broadcast(new WebSocketMessage<>("CELL_UPDATED", newCellState));
 
         return newCellState;
+    }
+
+    @Override
+    public long getTotalMessageCount() {
+        return messageMapper.countDistinctCoordinates();
+    }
+
+    @Override
+    public long countDistinctCoordinatesInGrid(int startRow, int endRow, int startCol, int endCol) {
+        return messageMapper.countDistinctCoordinatesInGrid(startRow, endRow, startCol, endCol);
+    }
+
+    @Override
+    public long getVisibleMessageCount() {
+        return messageMapper.countDistinctCoordinates();
     }
 
     /**

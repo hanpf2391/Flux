@@ -2,7 +2,9 @@ package com.flux.entropia.websocket;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.flux.entropia.service.MessageService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -19,6 +21,9 @@ public class FluxWebSocketHandler extends TextWebSocketHandler {
 
     private final ObjectMapper objectMapper;
     private static final CopyOnWriteArraySet<WebSocketSession> sessions = new CopyOnWriteArraySet<>();
+    
+    @Autowired
+    private MessageService messageService;
 
     public FluxWebSocketHandler(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
@@ -29,6 +34,8 @@ public class FluxWebSocketHandler extends TextWebSocketHandler {
     public void afterConnectionEstablished(WebSocketSession session) {
         sessions.add(session);
         log.info("New WebSocket connection from: {}, Session ID: {}. Total sessions: {}", session.getRemoteAddress(), session.getId(), sessions.size());
+        broadcastOnlineCount();
+        broadcastSystemStats();
     }
 
     @Override
@@ -98,9 +105,34 @@ public class FluxWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         sessions.remove(session);
-        // Add a cleanup logic for when a user disconnects while editing
-        // This part is complex and will be handled in a future iteration if needed.
         log.info("WebSocket connection closed: {} with status: {}. Total sessions: {}", session.getId(), status, sessions.size());
+        broadcastOnlineCount();
+        broadcastSystemStats();
+    }
+
+    private void broadcastOnlineCount() {
+        broadcast(new WebSocketMessage<>("ONLINE_COUNT_UPDATED", getOnlineUserCount()));
+    }
+
+    /**
+     * Broadcasts system statistics to all connected clients.
+     * This includes online user count and total message count.
+     */
+    public void broadcastSystemStats() {
+        int onlineCount = getOnlineUserCount();
+        long totalMessages = messageService.getTotalMessageCount();
+        
+        // Create a map with statistics data
+        Map<String, Object> statsData = Map.of(
+            "onlineCount", onlineCount,
+            "totalMessages", totalMessages
+        );
+        
+        broadcast(new WebSocketMessage<>("SYSTEM_STATS_UPDATED", statsData));
+    }
+
+    public int getOnlineUserCount() {
+        return sessions.size();
     }
 
     @Override

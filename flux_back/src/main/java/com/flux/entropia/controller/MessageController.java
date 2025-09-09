@@ -54,14 +54,10 @@ public class MessageController {
      * POST /api/messages : Create a new message node.
      */
     @PostMapping
-    public ResponseEntity<ApiResponse<MessageNodeDTO>> createMessage(
-        @Valid @RequestBody CreateMessageDTO createMessageDTO,
-        HttpServletRequest request
-    ) {
-        // It's crucial to get the real client IP, considering proxies.
-        String ipAddress = getClientIpAddress(request);
-        MessageNodeDTO createdNode = messageService.createMessage(createMessageDTO, ipAddress);
-        return new ResponseEntity<>(ApiResponse.success(createdNode), HttpStatus.CREATED);
+    public ResponseEntity<ApiResponse<MessageNodeDTO>> createOrUpdateMessage(@RequestBody @Valid CreateMessageDTO createMessageDTO, HttpServletRequest request) {
+        String ipAddress = request.getRemoteAddr();
+        MessageNodeDTO newNode = messageService.createOrUpdateMessage(createMessageDTO, ipAddress);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(newNode));
     }
 
     /**

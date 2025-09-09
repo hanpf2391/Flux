@@ -2,4 +2,14 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.flux.entropia.mapper.MessageMapper">
 
+    <select id="countDistinctCoordinates" resultType="long">
+        SELECT COUNT(DISTINCT row_index, col_index) FROM messages
+    </select>
+
+    <select id="countDistinctCoordinatesInGrid" resultType="long">
+        SELECT COUNT(DISTINCT row_index, col_index) FROM messages
+        WHERE row_index BETWEEN #{startRow} AND #{endRow}
+          AND col_index BETWEEN #{startCol} AND #{endCol}
+    </select>
+
 </mapper>

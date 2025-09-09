@@ -96,6 +96,15 @@ watch(
   () => props.cellData,
   (newData) => {
     const newContent = newData?.content || '';
+    const cellExists = newData !== undefined && newData.id !== null;
+    
+    // If cell doesn't exist (was deleted), reset everything
+    if (!cellExists) {
+      status.value = 'idle';
+      editableContent.value = '';
+      return;
+    }
+    
     if (status.value === 'saving' && newContent === editableContent.value) {
       status.value = 'idle';
     }
@@ -113,6 +122,13 @@ watch(
     }
   },
   { deep: true, immediate: true }
+);
+
+watch(
+  () => props.cellData?.id,
+  (newId) => {
+    baseVersionId.value = newId || null;
+  }
 );
 
 // --- Methods ---
@@ -144,22 +160,17 @@ const startEditing = async () => {
 };
 
 const handleSave = () => {
-  if (status.value !== 'editing' && status.value !== 'conflict') return;
-
-  // If trying to save from a conflict state, re-capture the latest base version ID
-  if (status.value === 'conflict') {
-    baseVersionId.value = props.cellData?.id || null;
-  }
+  // Prevent saving if already in the process, or if not in a valid state to save.
+  if (status.value === 'saving' || status.value !== 'editing') return;
 
   notifyEditingStatus(false);
+  
   const originalContent = props.cellData?.content || '';
-  const newContent = editableContent.value;
+  const newContent = editableContent.value.trim();
 
-  if (newContent === originalContent) {
-    status.value = 'idle';
-    return;
-  }
-
+  // Even if content is the same, we still need to update if the user explicitly saves
+  // This handles the case where user wants to clear content (set to empty)
+  
   status.value = 'saving';
   emit('update-text', 
     { content: newContent, baseVersionId: baseVersionId.value }, 

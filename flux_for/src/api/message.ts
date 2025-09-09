@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { MessageNodeDTO, MessageDetailDTO, CreateMessageDTO } from '../types';
+import type { MessageNodeDTO, MessageDetailDTO, CreateMessageDTO, StatsDTO } from '../types';
 
 // A generic ApiResponse type to match the backend wrapper
 interface ApiResponse<T> {
@@ -60,4 +60,28 @@ export const createMessage = async (messageData: CreateMessageDTO): Promise<Mess
         return response.data.data;
     }
     throw new Error(response.data.message || 'Failed to create message');
+};
+
+/**
+ * Fetches application statistics.
+ * @returns A promise that resolves to a StatsDTO object.
+ */
+export const getStats = async (): Promise<StatsDTO> => {
+    const response = await axios.get<ApiResponse<StatsDTO>>('/api/stats');
+    if (response.data && response.data.success) {
+        return response.data.data;
+    }
+    throw new Error(response.data.message || 'Failed to fetch stats');
+};
+
+/**
+ * Fetches viewport statistics.
+ * @returns A promise that resolves to a number object.
+ */
+export const getViewportStats = async (params: GridParams): Promise<number> => {
+    const response = await axios.get<ApiResponse<number>>('/api/stats/viewport', { params });
+    if (response.data && response.data.success) {
+        return response.data.data;
+    }
+    throw new Error(response.data.message || 'Failed to fetch viewport stats');
 };

@@ -28,4 +28,22 @@ public interface MessageMapper extends BaseMapper<Message> {
      * @return The latest Message entity, or null if none exists.
      */
     Message selectLatestForCell(@Param("rowIndex") int rowIndex, @Param("colIndex") int colIndex);
+
+    /**
+     * Counts the number of distinct coordinates (cells) that have messages.
+     *
+     * @return The total count of distinct cells.
+     */
+    long countDistinctCoordinates();
+
+    /**
+     * Counts the number of distinct coordinates within a given grid range.
+     *
+     * @param startRow The starting row index.
+     * @param endRow The ending row index.
+     * @param startCol The starting column index.
+     * @param endCol The ending column index.
+     * @return The count of distinct coordinates in the range.
+     */
+    long countDistinctCoordinatesInGrid(@Param("startRow") int startRow, @Param("endRow") int endRow, @Param("startCol") int startCol, @Param("endCol") int endCol);
 }

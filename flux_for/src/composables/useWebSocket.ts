@@ -10,7 +10,7 @@ const isConnected = shallowRef(false);
 
 // --- Message Types ---
 interface InboundMessage {
-  type: 'CELL_UPDATED' | 'USER_IS_EDITING' | 'USER_STOPPED_EDITING';
+  type: 'CELL_UPDATED' | 'CELL_DELETED' | 'USER_IS_EDITING' | 'USER_STOPPED_EDITING' | 'ONLINE_COUNT_UPDATED' | 'SYSTEM_STATS_UPDATED';
   payload: any;
 }
 
@@ -57,11 +57,20 @@ export function useWebSocket() {
           case 'CELL_UPDATED':
             fluxStore.updateCell(payload as MessageNodeDTO);
             break;
+          case 'CELL_DELETED':
+            fluxStore.deleteCell(payload.rowIndex, payload.colIndex);
+            break;
           case 'USER_IS_EDITING':
             lockStore.addLock(payload.rowIndex, payload.colIndex);
             break;
           case 'USER_STOPPED_EDITING':
             lockStore.removeLock(payload.rowIndex, payload.colIndex);
+            break;
+          case 'ONLINE_COUNT_UPDATED':
+            fluxStore.setOnlineUsers(payload as number);
+            break;
+          case 'SYSTEM_STATS_UPDATED':
+            fluxStore.updateSystemStats(payload);
             break;
           default:
             console.warn('Received unknown WebSocket message type:', message.type);
