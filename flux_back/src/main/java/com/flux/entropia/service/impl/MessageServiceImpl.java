@@ -3,6 +3,7 @@ package com.flux.entropia.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.flux.entropia.config.FluxProperties;
+import com.flux.entropia.dto.CanvasInitialPositionDTO;
 import com.flux.entropia.dto.CreateMessageDTO;
 import com.flux.entropia.dto.MessageDetailDTO;
 import com.flux.entropia.dto.MessageNodeDTO;
@@ -12,6 +13,7 @@ import com.flux.entropia.service.MessageService;
 import com.flux.entropia.websocket.FluxWebSocketHandler;
 import com.flux.entropia.websocket.WebSocketMessage;
 import org.apache.commons.text.StringEscapeUtils;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -26,6 +28,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class MessageServiceImpl implements MessageService {
 
@@ -173,6 +176,34 @@ public class MessageServiceImpl implements MessageService {
     @Override
     public long getVisibleMessageCount() {
         return messageMapper.countDistinctCoordinates();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CanvasInitialPositionDTO calculateHotspotPosition(int gridSize, int timeWindowDays) {
+        try {
+            // Log input parameters
+            log.info("Calculating hotspot position with gridSize={}, timeWindowDays={}", gridSize, timeWindowDays);
+            
+            // Get total message count for debugging
+            long totalMessages = getTotalMessageCount();
+            log.info("Total messages in database: {}", totalMessages);
+            
+            // Use the optimized SQL query to calculate hotspot position
+            CanvasInitialPositionDTO result = messageMapper.calculateHotspotPosition(gridSize, timeWindowDays);
+            
+            if (result == null) {
+                log.info("No hotspot found, returning default position (0,0)");
+                return CanvasInitialPositionDTO.defaultPosition();
+            }
+            
+            log.info("Calculated hotspot position: {}", result);
+            return result;
+            
+        } catch (Exception e) {
+            log.error("Failed to calculate hotspot position", e);
+            return CanvasInitialPositionDTO.defaultPosition();
+        }
     }
 
     /**

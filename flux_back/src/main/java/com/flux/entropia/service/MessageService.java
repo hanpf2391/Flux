@@ -1,5 +1,6 @@
 package com.flux.entropia.service;
 
+import com.flux.entropia.dto.CanvasInitialPositionDTO;
 import com.flux.entropia.dto.CreateMessageDTO;
 import com.flux.entropia.dto.MessageDetailDTO;
 import com.flux.entropia.dto.MessageNodeDTO;
@@ -56,5 +57,15 @@ public interface MessageService {
      * @return The total message count.
      */
     long getVisibleMessageCount();
+
+    /**
+     * Calculates the optimal hotspot position for new user initial positioning.
+     * Uses the optimized SQL query with grid-based aggregation for performance.
+     *
+     * @param gridSize The size of the grid cells for aggregation (recommended: 200)
+     * @param timeWindowDays The time window in days to consider for recent activity (recommended: 7)
+     * @return The calculated hotspot position
+     */
+    CanvasInitialPositionDTO calculateHotspotPosition(int gridSize, int timeWindowDays);
 
 }

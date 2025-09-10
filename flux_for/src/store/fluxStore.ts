@@ -36,7 +36,7 @@ export const useFluxStore = defineStore('flux', () => {
   // TOOLS STATE
   // ===================================================================
   const currentTool = ref<'text' | 'paint' | 'erase'>('text');
-  const activeColor = ref<string | null>(null);
+  const activeColor = ref<string>('#FFC0CB'); // 设置默认颜色
 
   // ===================================================================
   // ACTIONS
@@ -196,7 +196,7 @@ export const useFluxStore = defineStore('flux', () => {
   }
 
   function setActiveColor(color: string | null) {
-    activeColor.value = color;
+    activeColor.value = color || '#FFC0CB'; // 确保总是有有效的颜色值
   }
   return {
     // State

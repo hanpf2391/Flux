@@ -57,7 +57,15 @@
       "Read(/C:\\Users\\12699\\Desktop\\hanpf\\Flux\\flux_back\\src\\main\\java\\com\\flux\\entropia\\service\\impl/**)",
       "Read(/C:\\Users\\12699\\Desktop\\hanpf\\Flux\\flux_for\\src\\views/**)",
       "Read(/C:\\Users\\12699\\Desktop\\hanpf\\Flux\\flux_for\\src\\views/**)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Read(/C:\\Users\\12699\\Desktop\\hanpf\\Flux\\flux_for\\src\\components/**)",
+      "Read(/C:\\Users\\12699\\Desktop\\hanpf\\Flux\\flux_for\\src\\views/**)",
+      "Read(/C:\\Users\\12699\\Desktop\\hanpf\\Flux\\flux_for/**)",
+      "Read(/C:\\Users\\12699\\Desktop\\hanpf\\Flux\\flux_for/**)",
+      "Read(/C:\\Users\\12699\\Desktop\\hanpf\\Flux\\flux_for\\src\\views/**)",
+      "Read(/C:\\Users\\12699\\Desktop\\hanpf\\Flux\\flux_for\\src\\store/**)",
+      "Read(/C:\\Users\\12699\\Desktop\\hanpf\\Flux\\flux_for\\src\\composables/**)",
+      "Read(/C:\\Users\\12699\\Desktop\\hanpf\\Flux\\flux_for\\src\\components/**)"
     ],
     "deny": [],
     "ask": []

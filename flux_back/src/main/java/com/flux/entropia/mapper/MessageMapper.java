@@ -1,6 +1,7 @@
 package com.flux.entropia.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.flux.entropia.dto.CanvasInitialPositionDTO;
 import com.flux.entropia.entity.Message;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -46,4 +47,14 @@ public interface MessageMapper extends BaseMapper<Message> {
      * @return The count of distinct coordinates in the range.
      */
     long countDistinctCoordinatesInGrid(@Param("startRow") int startRow, @Param("endRow") int endRow, @Param("startCol") int startCol, @Param("endCol") int endCol);
+
+    /**
+     * Calculates the optimal hotspot position using grid-based aggregation.
+     * Implements the optimized SQL query from the design specification.
+     *
+     * @param gridSize The size of the grid cells for aggregation.
+     * @param timeWindowDays The time window in days to consider for recent activity.
+     * @return The calculated hotspot position, or null if no suitable position found.
+     */
+    CanvasInitialPositionDTO calculateHotspotPosition(@Param("gridSize") int gridSize, @Param("timeWindowDays") int timeWindowDays);
 }

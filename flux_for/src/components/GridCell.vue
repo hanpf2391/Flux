@@ -4,6 +4,8 @@
     :class="statusClass"
     :style="cellStyle"
     @click="handleCellClick"
+    @mousedown="handleCellMouseDown"
+    @mouseenter="handleCellMouseEnter"
   >
     <!-- Conflict State Overlay -->
     <div v-if="status === 'conflict'" class="conflict-overlay" :title="conflictTooltipText">
@@ -61,6 +63,7 @@ const props = defineProps({
 const emit = defineEmits<{
   (e: 'update-text', payload: { content: string; baseVersionId: number | null }, callbacks: { onError: (type: ErrorType) => void }): void;
   (e: 'update-color'): void;
+  (e: 'drag-paint'): void;
 }>();
 
 // --- Composables ---
@@ -137,6 +140,22 @@ const handleCellClick = () => {
     startEditing();
   } else {
     emit('update-color');
+  }
+};
+
+const handleCellMouseDown = (event: MouseEvent) => {
+  // 阻止事件冒泡，避免触发画布的拖拽
+  event.stopPropagation();
+  
+  if (currentTool.value === 'paint' || currentTool.value === 'erase') {
+    emit('update-color');
+    emit('drag-paint');
+  }
+};
+
+const handleCellMouseEnter = () => {
+  if (currentTool.value === 'paint' || currentTool.value === 'erase') {
+    emit('drag-paint');
   }
 };
 

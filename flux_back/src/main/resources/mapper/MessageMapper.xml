@@ -22,4 +22,73 @@
         LIMIT 1
     </select>
 
+    <!-- Optimized hotspot position calculation using grid-based aggregation -->
+    <select id="calculateHotspotPosition" resultType="com.flux.entropia.dto.CanvasInitialPositionDTO">
+        WITH
+          -- Step 1: Find the latest record for each coordinate
+          LatestUniqueMessages AS (
+            SELECT
+              id,
+              row_index,
+              col_index
+            FROM (
+              SELECT
+                id,
+                row_index,
+                col_index,
+                ROW_NUMBER() OVER(PARTITION BY row_index, col_index ORDER BY updated_at DESC) as rn
+              FROM
+                messages
+              WHERE
+                updated_at > NOW() - INTERVAL #{timeWindowDays} DAY
+                AND ((content IS NOT NULL AND content != '') OR bg_color IS NOT NULL)
+            ) AS RankedMessages
+            WHERE
+              rn = 1
+          ),
+
+          -- Step 2: Map all latest messages to grids and calculate heat value
+          GridScores AS (
+            SELECT
+              FLOOR(row_index / #{gridSize}) AS grid_x,
+              FLOOR(col_index / #{gridSize}) AS grid_y,
+              COUNT(id) AS heat_value
+            FROM
+              LatestUniqueMessages
+            GROUP BY
+              grid_x,
+              grid_y
+          ),
+          
+          -- Step 3: Find the grid with highest heat value (only if sufficient data)
+          HottestGrid AS (
+            SELECT
+              grid_x,
+              grid_y,
+              heat_value
+            FROM
+              GridScores
+            WHERE
+              heat_value >= 3  -- Minimum threshold for hotspot
+            ORDER BY
+              heat_value DESC
+            LIMIT 1
+          )
+
+        -- Step 4: Randomly select a coordinate from the hottest grid
+        SELECT
+          lum.row_index as rowIndex,
+          lum.col_index as colIndex,
+          false as isDefault,
+          'Hotspot position based on recent activity' as message
+        FROM
+          LatestUniqueMessages lum
+          JOIN HottestGrid hg ON 
+            FLOOR(lum.row_index / #{gridSize}) = hg.grid_x
+            AND FLOOR(lum.col_index / #{gridSize}) = hg.grid_y
+        ORDER BY
+          RAND()
+        LIMIT 1;
+    </select>
+
 </mapper>

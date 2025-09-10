@@ -28,3 +28,11 @@ export interface StatsDTO {
   onlineUsers: number;
   visibleMessages: number;
 }
+
+// DTO for canvas initial position response
+export interface CanvasInitialPositionDTO {
+  rowIndex: number;
+  colIndex: number;
+  isDefault: boolean;
+  message: string;
+}

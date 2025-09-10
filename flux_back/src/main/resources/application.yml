@@ -33,3 +33,22 @@ flux:
   rate-limit:
     # The duration in milliseconds for which a user (by IP) is blocked after a request.
     duration-ms: 100
+
+# Canvas hotspot analysis configuration
+canvas:
+  hotspot:
+    # Grid size for hotspot analysis (recommended: 10 for more granular results)
+    grid-size: 10
+    # Time window in days for considering recent activity (recommended: 7)
+    time-window-days: 7
+
+# Redis configuration for caching
+  redis:
+    host: localhost
+    port: 6379
+    timeout: 2000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
