@@ -58,7 +58,9 @@
           <polyline points="9 22 9 12 15 12 15 22"></polyline>
         </svg>
       </div>
-    </div>
+
+      
+      </div>
 
     <!-- The main canvas for interaction -->
     <div
@@ -88,11 +90,19 @@
         ></GridCell>
       </div>
     </div>
+
+    <!-- Heatmap Minimap -->
+    <HeatmapMinimap 
+      :viewport="viewport"
+      :canvas-ref="canvasRef"
+      style="display: block;"
+    />
+    
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { storeToRefs } from 'pinia';
 import { debounce } from 'lodash-es';
 import { useCanvas } from '../composables/useCanvas';
@@ -103,6 +113,7 @@ import { getInitialPosition } from '../api/canvas';
 import { isAxiosError } from 'axios';
 import GridCell, { type ErrorType } from '../components/GridCell.vue';
 import ColorPalette from '../components/ColorPalette.vue';
+import HeatmapMinimap from '../components/HeatmapMinimap.vue';
 import type { CreateMessageDTO, CanvasInitialPositionDTO } from '../types';
 
 // --- SETUP ---
@@ -116,6 +127,7 @@ const { setCurrentTool, setActiveColor } = store;
 
 const isMouseDown = ref(false);
 const isPaletteOpen = ref(false);
+
 
 // --- COMPUTED ---
 const worldStyle = computed(() => ({
@@ -218,9 +230,10 @@ const handleHomeClick = () => {
     viewport.x = canvasRef.value.clientWidth / 2 - targetWorldX * viewport.zoom;
     viewport.y = canvasRef.value.clientHeight / 2 - targetWorldY * viewport.zoom;
     
-    console.log('回到原点: viewport 设置到 (0,0)');
-  }
+      }
 };
+
+
 
 const handleColorChange = (newColor: string) => {
   if (newColor) {
@@ -244,6 +257,9 @@ const handleUpdate = async (rowIndex: number, colIndex: number, payload: Partial
       colIndex,
     };
     await createMessage(newMessage);
+    
+    // Update heatmap chunk value after successful update
+    store.updateChunkHeatValue(rowIndex, colIndex, 1);
     
     // Update viewport stats immediately after successful update
     if (canvasRef.value) {
@@ -351,8 +367,7 @@ onMounted(async () => {
       viewport.x = canvasRef.value.clientWidth / 2 - targetWorldX;
       viewport.y = canvasRef.value.clientHeight / 2 - targetWorldY;
       
-      console.log(`Initial position set to: (${initialPosition.rowIndex}, ${initialPosition.colIndex}) - ${initialPosition.message}`);
-    }
+          }
   } catch (error) {
     console.error("Failed to get initial position, using default center:", error);
     // Fallback to center of canvas if API fails
@@ -534,6 +549,19 @@ onUnmounted(() => {
   stroke: #409EFF;
 }
 
+.heatmap-icon svg {
+  stroke: #303133;
+}
+
+.heatmap-icon:hover svg {
+  stroke: #409EFF;
+}
+
+.heatmap-icon.is-active svg {
+  stroke: #409EFF;
+}
+
+
 .stats-corner {
   position: fixed;
   top: 20px;
@@ -547,5 +575,7 @@ onUnmounted(() => {
   font-family: 'Courier New', Courier, monospace;
   font-size: 0.9rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: top 0.3s ease;
 }
+
 </style>

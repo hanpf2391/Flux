@@ -40,11 +40,9 @@ export function useWebSocket() {
     const host = window.location.host;
     const socketURL = `${protocol}//${host}/ws/flux`;
 
-    console.log(`Connecting to WebSocket at ${socketURL}`);
     socket = new WebSocket(socketURL);
 
     socket.onopen = () => {
-      console.log('WebSocket connection established.');
       isConnected.value = true;
     };
 

@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'; // Changed reactive to ref
 import type { MessageNodeDTO, MessageDetailDTO } from '../types';
 import { getMessageDetail, getMessagesInGrid, getViewportStats } from '../api/message';
 import type { Viewport } from '../composables/useCanvas';
+import { useHeatmap, type HeatmapUpdateFunction } from '../composables/useHeatmap';
 
 // Define the fixed size of our grid cells
 export const CELL_SIZE = 150; // e.g., 150x150 pixels
@@ -10,7 +11,6 @@ export const CELL_SIZE = 150; // e.g., 150x150 pixels
 const CHUNK_SIZE = 10; // e.g., a 10x10 grid of cells
 
 export const useFluxStore = defineStore('flux', () => {
-  console.log('[fluxStore.ts] Setting up Flux store...');
   // ===================================================================
   // STATE
   // ===================================================================
@@ -25,6 +25,12 @@ export const useFluxStore = defineStore('flux', () => {
   const fetchedChunks = new Set<string>();
 
   const hoveredMessage = ref<MessageDetailDTO | null>(null); // CORRECT: Use ref for primitive/null values
+
+  // Heatmap instance and update function
+  const heatmapInstance = useHeatmap();
+  const updateChunkHeatValue: HeatmapUpdateFunction = (rowIndex: number, colIndex: number, increment?: number) => {
+    heatmapInstance.updateChunkHeatValue(rowIndex, colIndex, increment);
+  };
 
   // Stats
   const onlineUsers = ref(0);
@@ -139,7 +145,6 @@ export const useFluxStore = defineStore('flux', () => {
       };
 
       try {
-        console.log(`Fetching chunk: ${chunkKey}`, fetchParams);
         const fetchedCells = await getMessagesInGrid(fetchParams);
 
         // Add new cells to the cache
@@ -209,6 +214,11 @@ export const useFluxStore = defineStore('flux', () => {
     totalMessages,
     visibleMessages,
     viewportInfoCount,
+    // Heatmap
+    heatmapInstance,
+    updateChunkHeatValue,
+    // Constants
+    CELL_SIZE,
     // Actions
     fetchGridForViewport,
     fetchViewportInfoCount,

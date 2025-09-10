@@ -36,3 +36,15 @@ export interface CanvasInitialPositionDTO {
   isDefault: boolean;
   message: string;
 }
+
+// DTO for heatmap chunk data response
+export interface HeatmapChunkDTO {
+  chunkSize: number;
+  data: HeatmapDataDTO[];
+}
+
+export interface HeatmapDataDTO {
+  gridY: number;
+  gridX: number;
+  heatValue: number;
+}

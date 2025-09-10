@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.flux.entropia.mapper.HeatmapMapper">
+
+    <!-- Optimized heatmap chunk data query -->
+    <select id="getHeatmapChunks" resultType="com.flux.entropia.dto.HeatmapChunkDTO$HeatmapDataDTO">
+        WITH
+          -- Step 1: Find the latest record for each coordinate
+          LatestUniqueMessages AS (
+            SELECT
+              row_index,
+              col_index
+            FROM (
+              SELECT
+                row_index,
+                col_index,
+                ROW_NUMBER() OVER(PARTITION BY row_index, col_index ORDER BY updated_at DESC) as rn
+              FROM
+                messages
+              WHERE
+                ((content IS NOT NULL AND content != '') OR bg_color IS NOT NULL)
+            ) AS RankedMessages
+            WHERE
+              rn = 1
+          ),
+          
+          -- Step 2: Map coordinates to chunk grid
+          ChunkMapping AS (
+            SELECT
+              FLOOR(row_index / 9) AS grid_y,
+              FLOOR(col_index / 9) AS grid_x
+            FROM
+              LatestUniqueMessages
+          )
+        
+        -- Step 3: Calculate heat values for requested chunks
+        SELECT
+          grid_y as gridY,
+          grid_x as gridX,
+          COUNT(*) as heatValue
+        FROM
+          ChunkMapping
+        WHERE 
+          (grid_y, grid_x) IN 
+          <foreach item="chunk" collection="chunkCoordinates" open="(" separator="," close=")">
+            (#{chunk.gridY}, #{chunk.gridX})
+          </foreach>
+        GROUP BY 
+          grid_y, grid_x
+        ORDER BY 
+          grid_y, grid_x;
+    </select>
+
+</mapper>

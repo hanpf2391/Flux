@@ -1,125 +1,101 @@
-功能模块：智能初始定位 (Intelligent Initial Positioning)
-1. 功能目标 (Feature Goal)
-当任何用户（新用户或老用户）进入应用时，系统应能快速地将用户的初始视口定位到一个高质量的“热点区域”。
-2. “高质量热点区域”的定义
-一个高质量的热点区域，必须同时满足以下两个条件：
-高密度 (High Density): 这个区域本身及其紧邻的周围，必须有足够多的内容。这能确保用户降落后，视野内是丰富多彩的，而不是孤零零的一个点。
-高新近度 (High Recency): 这个区域的活动必须是近期发生的。这能确保用户看到的是鲜活、 relevan 的内容，而不是一个月前的“历史遗迹”。
-3. 用户故事 (User Story)
-作为 一名新用户，
-当我 第一次打开这个画布应用时，
-我希望 能立刻被带到一个看起来很热闹、很多人在互动的地方，
-以便于 我能马上发现有趣的内容，并理解这个应用是干什么的。
-4. 验收标准 (Acceptance Criteria)
-功能性:
-用户打开页面后，画布的初始中心点坐标应由后端动态计算得出。
-该坐标应代表近期（例如过去7天内）全局范围内最活跃的区域。
-“活跃度”的计算必须同时考虑内容密度和时间新近度。
-在没有足够数据（例如，应用刚上线）的情况下，系统应优雅地降级，返回一个默认坐标（如 (0,0)）。
-如果存在多个活跃度并列最高的区域，系统应随机选择其中一个，以避免所有用户总是降落在同一个点。
-性能:
-从用户打开页面到获取到初始坐标的API响应时间，应低于100毫秒。
-后端的计算过程不能阻塞或影响用户的API请求。
-可维护性:
-热点计算的逻辑应与API服务解耦，便于独立优化和修改。
-热点区域的定义参数（如“近期”是多久，“密度”的计算范围等）应易于配置和调整，无需修改代码。
-5. 详细设计 (Detailed Design)
-为了满足上述所有要求，特别是苛刻的性能要求，我们将采用**“离线预计算 + 在线高速查询”**的架构。
-A. 核心组件：热点分析器 (Hotspot Analyzer)
-这是一个后台定时任务 (Scheduled Job / Cron Job)，是整个功能的大脑。
-触发机制: 按固定的时间间隔重复执行（推荐频率：每 5 分钟）。
-核心职责:
-执行一个经过优化的SQL查询，对整个画布进行一次全局热点扫描。
-计算出全局唯一的“黄金生成点”坐标。
-将这个坐标结果写入高速缓存。
-B. 核心组件：高速缓存 (Cache)
-技术选型: Redis。
-数据结构: 简单的键值对 (Key-Value)。
-Key: golden_spawn_point
-Value (JSON String): {"rowIndex": 123, "colIndex": -456}
-作用: 作为“热点分析器”（慢速生产者）和“API服务”（快速消费者）之间的桥梁，实现解耦。
-C. 核心组件：API服务 (API Service)
-这是直接面向前端用户的接口。
-Endpoint: GET /api/canvas/initial-position
-核心逻辑:
-尝试从Redis中读取 golden_spawn_point 的值。
-如果成功读取到缓存:
-直接将缓存中的坐标返回给前端。操作结束。
-如果未能读取到缓存 (例如Redis宕机或系统首次启动):
-执行一次**“后备逻辑 (Fallback)”**：实时调用“全局最热点计算SQL”进行计算。
-将计算结果返回给前端。
-同时，将这个结果写入Redis，以便后续请求可以命中缓存。
-这是“热点分析器”使用的SQL，它必须被优化到极致。
-目的: 在满足“高质量热点区域”定义的前提下，尽可能快地完成计算。
-最终优化方案: 采用网格聚合 (Gridding) 的方式来平衡精度和性能。
+功能模块：动态区块式热力小地图 (最终版)
+1. 功能目标
+动态感知: 提供一个以用户为中心的“雷达式”小地图，实时按需加载并展示用户周围区域的热度。
+分级展示: 用有限的几种颜色代表不同的热度等级，让用户能直观、快速地理解区域活跃度。
+精确定位: 在小地图上清晰标示出用户当前主屏幕（视口）所观察的区域。
+快速导航: 允许用户通过点击小地图快速传送到目标区域。
+2. 核心定义
+单元格 (Cell): 画布的最小单位，坐标为 (row_index, col_index)。
+区块 (Chunk): 热度计算和数据加载的管理单元，由一个 9x9 的单元格矩阵构成。
+区块ID (Chunk ID): 每个区块的唯一标识符，由其网格坐标 (grid_x, grid_y) 组成。
+原始热力值 (Raw Heat Value): 一个区块内，包含了最新消息的单元格总数。其范围是 0 到 81。
+热度等级 (Heat Tiers): 对原始热力值的分级归类。
+冷区 (COLD): 热力值 0 - 20
+暖区 (WARM): 热力值 21 - 50
+热区 (HOT): 热力值 51 - 81
+3. 后端详细设计
+GET /api/heatmap/chunks
+方法: GET
+查询参数 (Query Parameter):
+chunks (string, required): 一个由特定字符（如 ;）分隔的区块ID字符串。
+示例: ?chunks=2,5;3,5;2,6
+接收前端传来的 chunks 参数字符串。
+解析参数: 将字符串解析成一个区块ID的坐标对列表，例如 [{x: 2, y: 5}, {x: 3, y: 5}, {x: 2, y: 6}]。
+执行数据库查询: 调用“按需区块加载SQL”，将解析出的坐标对列表作为参数传入。
+返回响应: 将SQL查询结果封装成JSON格式返回给前端。如果某个被请求的区块在数据库中没有任何数据，则它不会出现在返回的 data 数组中。
 code
 SQL
--- [生产环境] 后台定时任务SQL
--- ==========================================================
--- 可配置参数 (应从配置文件读取，而非硬编码)
-SET @GLOBAL_GRID_SIZE = 200; -- 定义“区域”的大小。值越大，扫描越宏观，速度越快。
-SET @TIME_WINDOW_DAYS = 7;   -- 定义“近期”是多久。
-
--- 最终执行的查询
+-- 参数: @CHUNK_SIZE = 9, @CHUNK_IDS = ((5,2), (5,3), (6,2), ...)
 WITH
-  -- 步骤1: 过滤出每个坐标上最新的那条记录，并限定在时间窗口内。
-  -- 这是性能优化的第一道屏障。
   LatestUniqueMessages AS (
-    SELECT
-      row_index,
-      col_index
+    SELECT row_index, col_index
     FROM (
-      SELECT
-        row_index,
-        col_index,
-        ROW_NUMBER() OVER(PARTITION BY row_index, col_index ORDER BY updated_at DESC) as rn
-      FROM
-        messages
-      WHERE
-        updated_at > NOW() - INTERVAL @TIME_WINDOW_DAYS DAY
+      SELECT row_index, col_index,
+             ROW_NUMBER() OVER(PARTITION BY row_index, col_index ORDER BY updated_at DESC) as rn
+      FROM messages
     ) AS RankedMessages
-    WHERE
-      rn = 1
+    WHERE rn = 1
   ),
-
-  -- 步骤2: 将所有最新点分配到宏观网格中，并计算每个网格的密度（即热度）。
-  -- 这是性能优化的核心，用高效的GROUP BY代替了昂贵的自连接。
-  GridScores AS (
-    SELECT
-      FLOOR(row_index / @GLOBAL_GRID_SIZE) AS grid_x,
-      FLOOR(col_index / @GLOBAL_GRID_SIZE) AS grid_y,
-      COUNT(*) AS heat_value
-    FROM
-      LatestUniqueMessages
-    GROUP BY
-      grid_x,
-      grid_y
-  ),
-  
-  -- 步骤3: 找出那个热度值最高的网格。
-  HottestGrid AS (
-    SELECT grid_x, grid_y
-    FROM GridScores
-    ORDER BY heat_value DESC
-    LIMIT 1
+  ChunkMapping AS (
+    SELECT FLOOR(row_index / @CHUNK_SIZE) AS grid_y,
+           FLOOR(col_index / @CHUNK_SIZE) AS grid_x
+    FROM LatestUniqueMessages
   )
-
--- 步骤4: 从最热的那个网格中，随机挑选一个真实的坐标点作为最终的“黄金生成点”。
--- 这确保了我们的生成点不是一个抽象的网格中心，而是一个真实存在过内容的位置。
 SELECT
-  lum.row_index,
-  lum.col_index
+  grid_y, grid_x, COUNT(*) AS heatValue
 FROM
-  LatestUniqueMessages lum
-  JOIN HottestGrid hg ON
-    FLOOR(lum.row_index / @GLOBAL_GRID_SIZE) = hg.grid_x AND
-    FLOOR(lum.col_index / @GLOBAL_GRID_SIZE) = hg.grid_y
-ORDER BY
-  -- 如果最热网格里有多个点，随机返回一个
-  RAND()
-LIMIT 1;
-6. 异常处理与边缘情况 (Edge Cases)
-场景: messages 表为空，或在 @TIME_WINDOW_DAYS 时间内没有任何数据。
-处理: 上述SQL查询将返回空结果。
-在“热点分析器”中: 如果查询结果为空，它应该在Redis中存入一个默认值，例如 {"rowIndex": 0, "colIndex": 0, "isDefault": true}。
-在API的“后备逻辑”中: 如果实时查询结果为空，API应直接返回默认值 {"rowIndex": 0, "colIndex": 0}。
+  ChunkMapping
+WHERE (grid_y, grid_x) IN @CHUNK_IDS
+GROUP BY grid_y, grid_x;
+格式: JSON
+示例:
+code
+JSON
+{
+  "chunkSize": 9,
+  "data": [
+    { "gridY": 5, "gridX": 2, "heatValue": 18 },
+    { "gridY": 5, "gridX": 3, "heatValue": 45 },
+    { "gridY": 6, "gridX": 2, "heatValue": 70 }
+  ]
+}
+4. 前端详细设计
+在前端代码中定义好配置，便于全局使用和修改。
+code
+JavaScript
+// src/config.js
+export const CHUNK_SIZE = 9;
+export const HEAT_TIERS = {
+  HOT:  { threshold: 51, color: '#FF4500', label: '热区 (51-81 条消息)' },
+  WARM: { threshold: 21, color: '#FFD700', label: '暖区 (21-50 条消息)' },
+  COLD: { threshold: 0,  color: '#1E90FF', label: '冷区 (0-20 条消息)' }
+};
+需要一个中央状态管理模块（或服务），包含：
+viewport: { centerX, centerY, width, height } (响应式对象) - 存储主画布的视口信息。
+heatmapData: Map<string, number> (响应式对象) - 全局唯一的区块热力数据缓存。Key为区块ID字符串 'gridX,gridY'，Value为原始热力值 (0-81)。
+loadedChunks: Set<string> - 记录已向后端请求过的区块ID，防止重复请求。
+创建一个HeatmapLoader服务或函数。
+当主画布视口变化时，会计算出视野内需要的所有区块ID。
+调用 HeatmapLoader.requestChunks(chunkIDs)。
+HeatmapLoader 过滤掉已存在于 loadedChunks 的ID，然后打包剩余的ID，调用 GET /api/heatmap/chunks API。
+API返回成功后，遍历 data 数组，将结果更新到全局的 heatmapData 中，并将请求过的ID存入 loadedChunks。
+UI: 一个固定在屏幕角落的 <div>，内部包含一个 <canvas> 元素。
+订阅: 组件需要实时响应 viewport 和 heatmapData 的变化。
+渲染逻辑:
+当 viewport 或 heatmapData 变化时，触发重绘函数。
+重绘函数根据 viewport.centerX, viewport.centerY 计算出小地图需要展示的中心点和区块范围。
+遍历小地图画布上的每一个像素（或逻辑单元），反算出它代表的是哪个区块ID。
+在 heatmapData 中查找该区块ID的原始热力值。
+如果找到了值，就调用一个 getTierColor(value) 的辅助函数，根据 HEAT_TIERS 配置，得到对应的颜色，并绘制该像素/单元。
+如果没找到值（说明还未加载），则绘制透明或一个默认的背景色。
+最后，在小地图的正中心绘制一个半透明矩形，代表 viewport 的范围。
+点击导航: 监听小地图Canvas的 click 事件，将点击的像素坐标转换为世界坐标，并命令主画布移动到该位置。
+一个独立的UI组件。
+逻辑: 读取 HEAT_TIERS 配置，动态渲染出颜色方块和对应的文字说明（label）。这确保了图例与实际渲染逻辑的完全同步。
+5. 初始加载流程 (User's First Impression)
+用户进入页面，主画布中心定位到 (0,0) 或“黄金生成点”。
+主画布根据初始视口，通过加载控制器请求第一批区块数据。
+数据返回，heatmapData 被填充。
+主画布（可选）和小地图同时监听到 heatmapData 的变化，并各自完成自己的首次渲染。
+用户看到一个以自己为中心、部分点亮的小地图雷达，以及主画布上对应区域的内容。
+这个设计方案详细、完整且可执行，将我们所有的讨论结果都融入其中，形成了一个健壮而高效的系统蓝图。
