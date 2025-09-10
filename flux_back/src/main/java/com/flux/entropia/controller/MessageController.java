@@ -55,6 +55,14 @@ public class MessageController {
      */
     @PostMapping
     public ResponseEntity<ApiResponse<MessageNodeDTO>> createOrUpdateMessage(@RequestBody @Valid CreateMessageDTO createMessageDTO, HttpServletRequest request) {
+        // Allow deletion of content if baseVersionId is provided (update operation)
+        // Only reject if it's a new creation (baseVersionId is null) with no content and no color
+        if (createMessageDTO.baseVersionId() == null && 
+            (createMessageDTO.content() == null || createMessageDTO.content().trim().isEmpty()) && 
+            createMessageDTO.bgColor() == null) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Content or background color must be provided for new cells"));
+        }
+        
         String ipAddress = request.getRemoteAddr();
         MessageNodeDTO newNode = messageService.createOrUpdateMessage(createMessageDTO, ipAddress);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(newNode));

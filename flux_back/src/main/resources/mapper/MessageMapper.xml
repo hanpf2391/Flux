@@ -3,13 +3,23 @@
 <mapper namespace="com.flux.entropia.mapper.MessageMapper">
 
     <select id="countDistinctCoordinates" resultType="long">
-        SELECT COUNT(DISTINCT row_index, col_index) FROM messages
+        SELECT COUNT(DISTINCT CONCAT(row_index, '_', col_index)) FROM messages
+        WHERE (content IS NOT NULL AND content != '') OR bg_color IS NOT NULL
     </select>
 
     <select id="countDistinctCoordinatesInGrid" resultType="long">
-        SELECT COUNT(DISTINCT row_index, col_index) FROM messages
+        SELECT COUNT(DISTINCT CONCAT(row_index, '_', col_index)) FROM messages
         WHERE row_index BETWEEN #{startRow} AND #{endRow}
           AND col_index BETWEEN #{startCol} AND #{endCol}
+          AND ((content IS NOT NULL AND content != '') OR bg_color IS NOT NULL)
+        ORDER BY row_index, col_index;
+    </select>
+
+  <select id="selectLatestForCell" resultType="com.flux.entropia.entity.Message">
+        SELECT * FROM messages 
+        WHERE row_index = #{rowIndex} AND col_index = #{colIndex}
+        ORDER BY created_at DESC 
+        LIMIT 1
     </select>
 
 </mapper>

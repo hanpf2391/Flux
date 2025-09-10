@@ -151,6 +151,7 @@ const startEditing = async () => {
   
   baseVersionId.value = props.cellData?.id || null;
   editableContent.value = props.cellData?.content || '';
+  
   status.value = 'editing'; // Set status to editing when entering
   notifyEditingStatus(true);
 
@@ -168,8 +169,15 @@ const handleSave = () => {
   const originalContent = props.cellData?.content || '';
   const newContent = editableContent.value.trim();
 
-  // Even if content is the same, we still need to update if the user explicitly saves
-  // This handles the case where user wants to clear content (set to empty)
+  // Check if we're making a meaningful change
+  const isContentChanged = originalContent.trim() !== newContent;
+  const hasBackgroundColor = props.cellData?.bgColor != null;
+  
+  // Only send request if there's a meaningful change (content changed OR there's background color)
+  if (!isContentChanged && !hasBackgroundColor) {
+    status.value = 'idle';
+    return;
+  }
   
   status.value = 'saving';
   emit('update-text', 

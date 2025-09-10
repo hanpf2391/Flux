@@ -206,9 +206,15 @@ const handleUpdate = async (rowIndex: number, colIndex: number, payload: Partial
     };
     await createMessage(newMessage);
     
-    // Update viewport stats after successful update
+    // Update viewport stats immediately after successful update
     if (canvasRef.value) {
+      // Cancel any pending debounced calls
+      if (viewportFetchTimeout) {
+        clearTimeout(viewportFetchTimeout);
+      }
+      // Fetch immediately for real-time update
       store.fetchViewportInfoCount(viewport, canvasRef.value);
+      store.fetchGridForViewport(viewport, canvasRef.value);
     }
   } catch (error) {
     console.error("Failed to update cell via API:", error);
@@ -228,7 +234,12 @@ const handleUpdateText = (
   payload: { content: string; baseVersionId: number | null },
   callbacks: { onError: (type: ErrorType) => void }
 ) => {
-  handleUpdate(rowIndex, colIndex, payload, callbacks);
+  const currentCell = getCellData(rowIndex, colIndex);
+  const updatePayload = {
+    ...payload,
+    bgColor: currentCell?.bgColor || null, // Preserve existing background color
+  };
+  handleUpdate(rowIndex, colIndex, updatePayload, callbacks);
 };
 
 const handleUpdateColor = (rowIndex: number, colIndex: number) => {
@@ -237,7 +248,14 @@ const handleUpdateColor = (rowIndex: number, colIndex: number) => {
 
   if (currentCell?.bgColor === newBgColor) return;
 
-  handleUpdate(rowIndex, colIndex, { bgColor: newBgColor, baseVersionId: currentCell?.id ?? null });
+  // Always preserve existing content when updating color
+  const updatePayload = {
+    bgColor: newBgColor,
+    content: currentCell?.content || null, // Preserve existing content
+    baseVersionId: currentCell?.id ?? null
+  };
+
+  handleUpdate(rowIndex, colIndex, updatePayload);
 };
 
 const handleDragPaint = (rowIndex: number, colIndex: number) => {
@@ -265,12 +283,19 @@ watch(isPaletteOpen, (isOpen) => {
   }
 });
 
-const debouncedFetch = debounce(() => {
-  if (canvasRef.value) {
-    store.fetchGridForViewport(viewport, canvasRef.value);
-    store.fetchViewportInfoCount(viewport, canvasRef.value);
+let viewportFetchTimeout: NodeJS.Timeout | null = null;
+
+const debouncedFetch = () => {
+  if (viewportFetchTimeout) {
+    clearTimeout(viewportFetchTimeout);
   }
-}, 500);
+  viewportFetchTimeout = setTimeout(() => {
+    if (canvasRef.value) {
+      store.fetchGridForViewport(viewport, canvasRef.value);
+      store.fetchViewportInfoCount(viewport, canvasRef.value);
+    }
+  }, 500);
+};
 
 watch(viewport, debouncedFetch, { deep: true });
 
@@ -279,8 +304,11 @@ onMounted(async () => {
   window.addEventListener('keydown', handleKeyDown);
   try {
     const stats = await getStats();
-    store.setTotalMessages(stats.totalMessages);
-    store.setOnlineUsers(stats.onlineUsers);
+    store.updateSystemStats({
+      onlineCount: stats.onlineUsers,
+      totalMessages: stats.totalMessages,
+      visibleMessages: stats.visibleMessages
+    });
   } catch (error) {
     console.error("Failed to fetch initial stats:", error);
   }
@@ -288,6 +316,9 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown);
+  if (viewportFetchTimeout) {
+    clearTimeout(viewportFetchTimeout);
+  }
 });
 
 </script>

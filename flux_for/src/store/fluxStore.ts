@@ -29,6 +29,7 @@ export const useFluxStore = defineStore('flux', () => {
   // Stats
   const onlineUsers = ref(0);
   const totalMessages = ref(0);
+  const visibleMessages = ref(0);
   const viewportInfoCount = ref(0);
 
   // ===================================================================
@@ -49,9 +50,10 @@ export const useFluxStore = defineStore('flux', () => {
     totalMessages.value = count;
   }
 
-  function updateSystemStats(stats: { onlineCount: number; totalMessages: number }) {
+  function updateSystemStats(stats: { onlineCount: number; totalMessages: number; visibleMessages: number }) {
     setOnlineUsers(stats.onlineCount);
     setTotalMessages(stats.totalMessages);
+    visibleMessages.value = stats.visibleMessages;
   }
 
   let viewportFetchTimeout: NodeJS.Timeout | null = null;
@@ -205,6 +207,7 @@ export const useFluxStore = defineStore('flux', () => {
     activeColor,
     onlineUsers,
     totalMessages,
+    visibleMessages,
     viewportInfoCount,
     // Actions
     fetchGridForViewport,

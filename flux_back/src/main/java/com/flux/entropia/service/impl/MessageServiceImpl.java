@@ -69,10 +69,7 @@ public class MessageServiceImpl implements MessageService {
     public MessageNodeDTO createOrUpdateMessage(CreateMessageDTO dto, String ipAddress) {
         checkIpRateLimit(ipAddress);
 
-        LambdaQueryWrapper<Message> queryWrapper = new LambdaQueryWrapper<Message>()
-                .eq(Message::getRowIndex, dto.rowIndex())
-                .eq(Message::getColIndex, dto.colIndex());
-        Message existingMessage = messageMapper.selectOne(queryWrapper);
+        Message existingMessage = messageMapper.selectLatestForCell(dto.rowIndex(), dto.colIndex());
 
         Message messageToSave;
 
@@ -108,10 +105,26 @@ public class MessageServiceImpl implements MessageService {
         messageToSave.setBgColor(dto.bgColor());
         messageToSave.setIpAddress(ipAddress);
 
+        // Handle empty content creation (should be treated as deletion)
+        if (messageToSave.getId() == null && sanitizedContent.isEmpty() && dto.bgColor() == null) {
+            // Don't create empty cells
+            return null;
+        }
+
         if (messageToSave.getId() == null) {
+            // This is a new cell creation
             messageMapper.insert(messageToSave);
+            
+            // Broadcast the new state
+            MessageNodeDTO newCellState = new MessageNodeDTO(messageToSave.getId(), messageToSave.getRowIndex(), messageToSave.getColIndex(), messageToSave.getContent(), messageToSave.getBgColor());
+            webSocketHandler.broadcast(new WebSocketMessage<>("CELL_UPDATED", newCellState));
+            
+            // Broadcast updated statistics
+            webSocketHandler.broadcastSystemStats();
+            
+            return newCellState;
         } else {
-            // Handle case where content is cleared
+            // Handle case where content is cleared but color might be set
             if (sanitizedContent.isEmpty() && dto.bgColor() == null) {
                 // If both content and color are cleared, delete the cell
                 messageMapper.deleteById(messageToSave.getId());
@@ -119,17 +132,32 @@ public class MessageServiceImpl implements MessageService {
                 // Broadcast deletion
                 webSocketHandler.broadcast(new WebSocketMessage<>("CELL_DELETED", new MessageNodeDTO(messageToSave.getId(), dto.rowIndex(), dto.colIndex(), null, null)));
                 
+                // Broadcast updated statistics
+                webSocketHandler.broadcastSystemStats();
+                
                 return new MessageNodeDTO(messageToSave.getId(), dto.rowIndex(), dto.colIndex(), null, null);
             } else {
-                messageMapper.updateById(messageToSave);
+                // For updates, create a new record to preserve history
+                Message newMessage = new Message();
+                newMessage.setRowIndex(dto.rowIndex());
+                newMessage.setColIndex(dto.colIndex());
+                newMessage.setContent(sanitizedContent);
+                // Preserve existing background color if new one is not provided
+                newMessage.setBgColor(dto.bgColor() != null ? dto.bgColor() : existingMessage.getBgColor());
+                newMessage.setIpAddress(ipAddress);
+                
+                messageMapper.insert(newMessage);
+                
+                // Broadcast the new state
+                MessageNodeDTO newCellState = new MessageNodeDTO(newMessage.getId(), newMessage.getRowIndex(), newMessage.getColIndex(), newMessage.getContent(), newMessage.getBgColor());
+                webSocketHandler.broadcast(new WebSocketMessage<>("CELL_UPDATED", newCellState));
+                
+                // Broadcast updated statistics
+                webSocketHandler.broadcastSystemStats();
+                
+                return newCellState;
             }
         }
-
-        // Broadcast the new state to all clients
-        MessageNodeDTO newCellState = new MessageNodeDTO(messageToSave.getId(), messageToSave.getRowIndex(), messageToSave.getColIndex(), messageToSave.getContent(), messageToSave.getBgColor());
-        webSocketHandler.broadcast(new WebSocketMessage<>("CELL_UPDATED", newCellState));
-
-        return newCellState;
     }
 
     @Override

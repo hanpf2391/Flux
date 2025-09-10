@@ -26,4 +26,5 @@ export interface CreateMessageDTO {
 export interface StatsDTO {
   totalMessages: number;
   onlineUsers: number;
+  visibleMessages: number;
 }

@@ -121,11 +121,13 @@ public class FluxWebSocketHandler extends TextWebSocketHandler {
     public void broadcastSystemStats() {
         int onlineCount = getOnlineUserCount();
         long totalMessages = messageService.getTotalMessageCount();
+        long visibleMessages = messageService.getVisibleMessageCount();
         
         // Create a map with statistics data
         Map<String, Object> statsData = Map.of(
             "onlineCount", onlineCount,
-            "totalMessages", totalMessages
+            "totalMessages", totalMessages,
+            "visibleMessages", visibleMessages
         );
         
         broadcast(new WebSocketMessage<>("SYSTEM_STATS_UPDATED", statsData));

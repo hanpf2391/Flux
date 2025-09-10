@@ -32,4 +32,4 @@ mybatis-plus:
 flux:
   rate-limit:
     # The duration in milliseconds for which a user (by IP) is blocked after a request.
-    duration-ms: 300
+    duration-ms: 100
