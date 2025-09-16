@@ -1,4 +1,4 @@
-import axios from 'axios';
+import apiClient from '../utils/api';
 import type { MessageNodeDTO, MessageDetailDTO, CreateMessageDTO, StatsDTO } from '../types';
 
 // A generic ApiResponse type to match the backend wrapper
@@ -23,7 +23,7 @@ export interface GridParams {
  */
 export const getMessagesInGrid = async (params: GridParams): Promise<MessageNodeDTO[]> => {
   try {
-    const response = await axios.get<ApiResponse<MessageNodeDTO[]>>('/api/messages', { params });
+    const response = await apiClient.get<ApiResponse<MessageNodeDTO[]>>('/messages', { params });
     if (response.data && response.data.success) {
       return response.data.data;
     } else {
@@ -41,7 +41,7 @@ export const getMessagesInGrid = async (params: GridParams): Promise<MessageNode
  * @returns A promise that resolves to a MessageDetailDTO object.
  */
 export const getMessageDetail = async (id: number): Promise<MessageDetailDTO> => {
-  const response = await axios.get<ApiResponse<MessageDetailDTO>>(`/api/messages/${id}`);
+  const response = await apiClient.get<ApiResponse<MessageDetailDTO>>(`/messages/${id}`);
   if (response.data && response.data.success) {
     return response.data.data;
   } else {
@@ -55,7 +55,7 @@ export const getMessageDetail = async (id: number): Promise<MessageDetailDTO> =>
  * @returns A promise that resolves to the created message cell data.
  */
 export const createMessage = async (messageData: CreateMessageDTO): Promise<MessageNodeDTO> => {
-    const response = await axios.post<ApiResponse<MessageNodeDTO>>('/api/messages', messageData);
+    const response = await apiClient.post<ApiResponse<MessageNodeDTO>>('/messages', messageData);
     if (response.data && response.data.success) {
         return response.data.data;
     }
@@ -67,7 +67,7 @@ export const createMessage = async (messageData: CreateMessageDTO): Promise<Mess
  * @returns A promise that resolves to a StatsDTO object.
  */
 export const getStats = async (): Promise<StatsDTO> => {
-    const response = await axios.get<ApiResponse<StatsDTO>>('/api/stats');
+    const response = await apiClient.get<ApiResponse<StatsDTO>>('/stats');
     if (response.data && response.data.success) {
         return response.data.data;
     }
@@ -79,7 +79,7 @@ export const getStats = async (): Promise<StatsDTO> => {
  * @returns A promise that resolves to a number object.
  */
 export const getViewportStats = async (params: GridParams): Promise<number> => {
-    const response = await axios.get<ApiResponse<number>>('/api/stats/viewport', { params });
+    const response = await apiClient.get<ApiResponse<number>>('/stats/viewport', { params });
     if (response.data && response.data.success) {
         return response.data.data;
     }

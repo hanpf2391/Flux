@@ -31,6 +31,9 @@ export function useCanvas(canvasRef: Ref<HTMLElement | null>) {
   // --- Event Handlers ---
 
   const onPointerDown = (event: PointerEvent) => {
+    // Ignore touch events on mobile devices - let touch handlers handle them
+    if (event.pointerType === 'touch') return;
+    
     // Only pan with left-click when in panning mode
     if (event.button !== 0 || !isPanningMode.value) return;
 
@@ -49,6 +52,9 @@ export function useCanvas(canvasRef: Ref<HTMLElement | null>) {
   };
 
   const onPointerMove = (event: PointerEvent) => {
+    // Ignore touch events on mobile devices - let touch handlers handle them
+    if (event.pointerType === 'touch') return;
+    
     currentMousePosition.x = event.clientX;
     currentMousePosition.y = event.clientY;
 
@@ -66,6 +72,9 @@ export function useCanvas(canvasRef: Ref<HTMLElement | null>) {
   };
 
   const onPointerUp = (event: PointerEvent) => {
+    // Ignore touch events on mobile devices - let touch handlers handle them
+    if (event.pointerType === 'touch') return;
+    
     if (interactionState.value !== 'PANNING') return;
 
     interactionState.value = 'IDLE';

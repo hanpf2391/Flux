@@ -9,10 +9,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@types/node": "^24.3.3",
     "axios": "^1.6.8",
     "element-plus": "^2.11.2",
     "lodash-es": "^4.17.21",
     "pinia": "^2.1.7",
+    "terser": "^5.44.0",
     "vue": "^3.4.27",
     "vue-router": "^4.3.2"
   },
@@ -20,6 +22,7 @@
     "@types/lodash-es": "^4.17.12",
     "@vitejs/plugin-vue": "^5.0.4",
     "@vue/tsconfig": "^0.7.0",
+    "postcss-px-to-viewport": "^1.1.1",
     "typescript": "~5.4.5",
     "vite": "^5.2.11",
     "vue-tsc": "^2.0.19"

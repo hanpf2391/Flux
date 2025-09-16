@@ -1,25 +1,21 @@
 {
+  "extends": "@tsconfig/node18/tsconfig.json", // 确保您项目中确实有这个基础配置
+  "include": [
+    "vite.config.*",
+    "vitest.config.*",
+    "cypress.config.*",
+    "nightwatch.conf.*",
+    "playwright.config.*"
+  ],
+  /* "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo", */ // 已注释掉：此选项需要 'incremental' 或 'composite'
   "compilerOptions": {
-    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
-    "target": "ES2023",
-    "lib": ["ES2023"],
+    "composite": true,
     "module": "ESNext",
-    "skipLibCheck": true,
-
-    /* Bundler mode */
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true,
-    "moduleDetection": "force",
-    "noEmit": true,
-
-    /* Linting */
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true
-  },
-  "include": ["vite.config.ts"]
+    "moduleResolution": "Bundler", // 或者 "Node"，根据您的项目
+    "target": "ESNext", // 已修改为更通用的 "ESNext"
+    "types": ["node"],
+    /* "erasableSyntaxOnly": true, */ // 已注释掉：未知或版本不兼容的选项
+    "allowJs": true
+    /* "noUncheckedSideEffectImports": true */ // 已注释掉：未知或版本不兼容的选项
+  }
 }

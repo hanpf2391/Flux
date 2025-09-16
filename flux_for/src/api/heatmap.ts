@@ -1,5 +1,5 @@
 // src/api/heatmap.ts
-import axios from 'axios';
+import apiClient from '../utils/api';
 import type { HeatmapChunkDTO } from '../types';
 
 // A generic ApiResponse type to match the backend wrapper
@@ -11,7 +11,7 @@ interface ApiResponse<T> {
 
 export async function getHeatmapChunks(chunks: string): Promise<HeatmapChunkDTO> {
   try {
-    const response = await axios.get<ApiResponse<HeatmapChunkDTO>>('/api/heatmap/chunks', {
+    const response = await apiClient.get<ApiResponse<HeatmapChunkDTO>>('/heatmap/chunks', {
       params: { chunks }
     });
     return response.data.data;

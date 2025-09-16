@@ -6,6 +6,8 @@
     @click="handleCellClick"
     @mousedown="handleCellMouseDown"
     @mouseenter="handleCellMouseEnter"
+    @touchstart="handleCellTouchStart"
+    @touchend="handleCellTouchEnd"
   >
     <!-- Conflict State Overlay -->
     <div v-if="status === 'conflict'" class="conflict-overlay" :title="conflictTooltipText">
@@ -57,6 +59,10 @@ const props = defineProps({
   colIndex: {
     type: Number,
     required: true,
+  },
+  isTouchClick: {
+    type: Function as PropType<() => boolean>,
+    default: () => true,
   },
 });
 
@@ -159,6 +165,30 @@ const handleCellMouseEnter = () => {
   }
 };
 
+const handleCellTouchStart = (event: TouchEvent) => {
+  // 不阻止事件传播，让画布也能处理触摸事件
+  // 只在需要编辑时阻止默认行为
+  if (currentTool.value === 'text') {
+    event.preventDefault();
+  }
+};
+
+const handleCellTouchEnd = (event: TouchEvent) => {
+  // 不阻止事件传播，让画布也能处理触摸事件
+  // 只在需要编辑时阻止默认行为
+  if (currentTool.value === 'text') {
+    event.preventDefault();
+  }
+  
+  if (props.isTouchClick()) {
+    if (currentTool.value === 'text') {
+      startEditing();
+    } else {
+      emit('update-color');
+    }
+  }
+};
+
 const notifyEditingStatus = (isEditing: boolean) => {
   sendMessage({ type: isEditing ? 'USER_IS_EDITING' : 'USER_STOPPED_EDITING', payload: { rowIndex: props.rowIndex, colIndex: props.colIndex } });
 };
@@ -243,6 +273,19 @@ const cancelEditing = () => {
   width: 100%;
   height: 100%;
   box-sizing: border-box;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .cell-content {
+    padding: 4px;
+    font-size: 12px;
+  }
+  
+  .cell-editor {
+    padding: 4px;
+    font-size: 12px;
+  }
 }
 
 .cell-editor {

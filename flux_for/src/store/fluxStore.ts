@@ -7,6 +7,9 @@ import { useHeatmap, type HeatmapUpdateFunction } from '../composables/useHeatma
 
 // Define the fixed size of our grid cells
 export const CELL_SIZE = 150; // e.g., 150x150 pixels
+
+// Mobile cell size (smaller for better visibility)
+export const MOBILE_CELL_SIZE = 80; // e.g., 80x80 pixels for mobile
 // Define the size of a chunk (in cells) for fetching
 const CHUNK_SIZE = 10; // e.g., a 10x10 grid of cells
 
@@ -62,7 +65,7 @@ export const useFluxStore = defineStore('flux', () => {
     visibleMessages.value = stats.visibleMessages;
   }
 
-  let viewportFetchTimeout: NodeJS.Timeout | null = null;
+  let viewportFetchTimeout: ReturnType<typeof setTimeout> | null = null;
   
   async function fetchViewportInfoCount(viewport: Viewport, canvasElement: HTMLElement | null) {
     if (!canvasElement) return;

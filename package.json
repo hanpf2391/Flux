@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@tsconfig/node18": "^18.2.4"
+  }
+}

@@ -6,6 +6,9 @@ import ElementPlus from 'element-plus';
 import 'element-plus/dist/index.css';
 import './style.css';
 
+// Initialize API client configuration
+import './utils/api';
+
 const app = createApp(App);
 app.use(createPinia());
 app.use(router);

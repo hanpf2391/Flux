@@ -12,6 +12,8 @@
         :width="MINIMAP_SIZE"
         :height="MINIMAP_SIZE"
         @click="handleCanvasClick"
+        @touchstart="handleCanvasTouchStart"
+        @touchend="handleCanvasTouchEnd"
       ></canvas>
       
       <!-- 视口指示器 -->
@@ -25,16 +27,17 @@
     
     <!-- 热力图例 -->
     <div class="heatmap-legend">
-      <div 
-        v-for="(tier, key) in HEAT_TIERS" 
-        :key="key"
-        class="legend-item"
-      >
-        <div 
-          class="legend-color" 
-          :style="{ backgroundColor: tier.color }"
-        ></div>
-        <span class="legend-label">{{ tier.label }}</span>
+      <div class="legend-item">
+        <div class="legend-color" style="background-color: #ff4444;"></div>
+        <span class="legend-label">热区 (51-81 条消息)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background-color: #ffaa00;"></div>
+        <span class="legend-label">暖区 (21-50 条消息)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background-color: #44ff44;"></div>
+        <span class="legend-label">冷区 (0-20 条消息)</span>
       </div>
     </div>
   </div>
@@ -49,7 +52,7 @@ import {
   MINIMAP_SIZE, 
   MINIMAP_CHUNKS_VISIBLE, 
   CHUNK_SIZE as HEATMAP_CHUNK_SIZE, 
-  getHeatColor 
+  getHeatColor
 } from '../config/heatmap';
 
 // Props
@@ -98,8 +101,8 @@ const viewportIndicatorStyle = computed(() => {
   const minimapY = (worldY / (MINIMAP_CHUNKS_VISIBLE * HEATMAP_CHUNK_SIZE * CELL_SIZE)) * MINIMAP_SIZE;
   
   // 视口大小在小地图上的显示
-  const viewWidthInCells = mainCanvasRef.value!.clientWidth / viewport.zoom / CELL_SIZE;
-  const viewHeightInCells = mainCanvasRef.value!.clientHeight / viewport.zoom / CELL_SIZE;
+  const viewWidthInCells = mainCanvasRef.value!.clientWidth / props.viewport.zoom / CELL_SIZE;
+  const viewHeightInCells = mainCanvasRef.value!.clientHeight / props.viewport.zoom / CELL_SIZE;
   const indicatorWidth = (viewWidthInCells / (MINIMAP_CHUNKS_VISIBLE * HEATMAP_CHUNK_SIZE)) * MINIMAP_SIZE;
   const indicatorHeight = (viewHeightInCells / (MINIMAP_CHUNKS_VISIBLE * HEATMAP_CHUNK_SIZE)) * MINIMAP_SIZE;
   
@@ -211,6 +214,40 @@ const handleCanvasClick = (event: MouseEvent) => {
   
   };
 
+const handleCanvasTouchStart = (event: TouchEvent) => {
+  event.preventDefault();
+};
+
+const handleCanvasTouchEnd = (event: TouchEvent) => {
+  event.preventDefault();
+  if (!canvasRef.value || !mainCanvasRef.value) return;
+  
+  const touch = event.changedTouches[0];
+  const rect = canvasRef.value.getBoundingClientRect();
+  const x = touch.clientX - rect.left;
+  const y = touch.clientY - rect.top;
+  
+  // 计算触摸位置对应的世界坐标
+  const centerX = (-props.viewport.x + mainCanvasRef.value.clientWidth / 2) / props.viewport.zoom / CELL_SIZE;
+  const centerY = (-props.viewport.y + mainCanvasRef.value.clientHeight / 2) / props.viewport.zoom / CELL_SIZE;
+  
+  const centerChunkX = Math.floor(centerX / HEATMAP_CHUNK_SIZE);
+  const centerChunkY = Math.floor(centerY / HEATMAP_CHUNK_SIZE);
+  
+  const startChunkX = centerChunkX - Math.floor(MINIMAP_CHUNKS_VISIBLE / 2);
+  const startChunkY = centerChunkY - Math.floor(MINIMAP_CHUNKS_VISIBLE / 2);
+  
+  const clickedChunkX = startChunkX + Math.floor(x / (MINIMAP_SIZE / MINIMAP_CHUNKS_VISIBLE));
+  const clickedChunkY = startChunkY + Math.floor(y / (MINIMAP_SIZE / MINIMAP_CHUNKS_VISIBLE));
+  
+  const targetWorldX = clickedChunkX * HEATMAP_CHUNK_SIZE * CELL_SIZE + (HEATMAP_CHUNK_SIZE * CELL_SIZE) / 2;
+  const targetWorldY = clickedChunkY * HEATMAP_CHUNK_SIZE * CELL_SIZE + (HEATMAP_CHUNK_SIZE * CELL_SIZE) / 2;
+  
+  // 更新视口位置
+  props.viewport.x = mainCanvasRef.value.clientWidth / 2 - targetWorldX * props.viewport.zoom;
+  props.viewport.y = mainCanvasRef.value.clientHeight / 2 - targetWorldY * props.viewport.zoom;
+};
+
 // Watchers
 watch(() => props.canvasRef, (newRef) => {
   if (newRef) {
@@ -225,7 +262,7 @@ watch(() => props.canvasRef, (newRef) => {
 
 
 // 监听热力数据变化并触发重绘
-watch([() => heatmap.heatmapUpdateCounter?.value], () => {
+watch([() => heatmap.heatmapUpdateCounter], () => {
   if (ctx.value) {
     // 取消现有的动画帧，避免重复绘制
     if (animationFrameId.value) {
@@ -330,6 +367,44 @@ onUnmounted(() => {
   background: rgba(255, 255, 255, 0.9);
   border-radius: 8px;
   overflow: hidden;
+  touch-action: none;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .minimap-container {
+    top: 60px;
+    left: 10px;
+    width: 140px;
+    transform: none;
+  }
+  
+  .minimap-header {
+    padding: 8px 12px;
+  }
+  
+  .minimap-title {
+    font-size: 12px;
+  }
+  
+  .minimap-content {
+    padding: 8px;
+  }
+  
+  .legend-item {
+    margin-bottom: 6px;
+  }
+  
+  .legend-color {
+    width: 12px;
+    height: 12px;
+    margin-right: 6px;
+  }
+  
+  .legend-label {
+    font-size: 10px;
+    line-height: 1.2;
+  }
 }
 
 .minimap-header {

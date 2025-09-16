@@ -1,0 +1,129 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: flux-backend
+
+  # --- 数据库配置 ---
+  datasource:
+    # URL中的主机名 'db' 会被 Docker 的内部DNS解析到MySQL容器
+    url: jdbc:mysql://db:3306/flux?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC&useSSL=false&allowPublicKeyRetrieval=true
+
+    # 【修改1：使用环境变量】硬编码凭证是坏习惯。改为引用环境变量，这样配置更灵活、安全。
+    # 这些变量将由 docker-compose.yml 注入。
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+    # --- 连接池配置 ---
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      max-lifetime: 1800000
+      pool-name: FluxHikariCP
+
+      # 【修改2：增强启动健壮性】
+      # 将连接超时延长到1分钟，给MySQL容器充分的启动时间。
+      connection-timeout: 60000
+      # 验证连接的超时时间
+      validation-timeout: 5000
+      #【关键】设置为0，防止在启动时因数据库未就绪而立即失败。它会持续尝试获取连接。
+      initialization-fail-timeout: 0
+      # 这个测试查询是好的，保留它
+      connection-test-query: SELECT 1
+  # --- Redis 配置 ---
+  redis:
+    port: 6379
+    # 【修改3：主机名配置】
+    # 移除默认值 :redis。直接使用 ${SPRING_REDIS_HOST}。
+    # 这样如果环境变量不存在，应用会报错启动失败，这能帮助你更快发现配置问题，
+    # 而不是静默地使用一个可能错误的默认值。
+    # Docker Compose中我们已经定义了 SPRING_REDIS_HOST=redis
+    host: ${SPRING_REDIS_HOST}
+    password: ${SPRING_REDIS_PASSWORD} # 通过环境变量读取密码
+    timeout: 5000ms
+    lettuce:
+      pool:
+        max-active: 50
+        max-idle: 20
+        min-idle: 5
+        max-wait: 3000ms
+
+  # --- JPA 配置 ---
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        format_sql: false
+
+# MyBatis Plus 配置
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+  mapper-locations: classpath*:/mapper/**/*.xml
+  global-config:
+    db-config:
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# 日志配置
+logging:
+  level:
+    root: INFO
+    com.flux.entropia: INFO
+    org.springframework.security: WARN
+    org.hibernate: WARN
+  # 【修改4：优化日志路径】
+  # 使用相对路径，使其写入 Dockerfile 中创建的 /app/logs 目录
+  file:
+    name: logs/flux-backend.log
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      max-history: 30
+      total-size-cap: 1GB
+
+# 应用特定配置
+flux:
+  rate-limit:
+    duration-ms: 50
+
+canvas:
+  hotspot:
+    grid-size: 10
+    time-window-days: 7
+
+# 健康检查与监控
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      # 在容器环境中，我们希望健康检查能提供详细信息，便于调试
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+# 安全配置
+security:
+  basic:
+    enabled: false
+  cors:
+    # 【修改5：CORS配置】
+    # 直接引用环境变量，不要提供默认值。
+    # 这样可以强制部署时必须在 .env 文件中提供这个值。
+    allowed-origins: ${CORS_ALLOWED_ORIGINS}
+    allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+    allowed-headers: "*"
+    allow-credentials: true
